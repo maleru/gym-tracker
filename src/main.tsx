@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
 import { requestPersistence } from './db';
-import { cleanCatalogOnce, seedIfEmpty } from './seed';
+import { seedIfEmpty } from './seed';
 import { navigate, useRoute } from './router';
 import { HomeScreen } from './screens/Home';
 import { PlanEditor, PlansScreen } from './screens/Plans';
@@ -38,7 +38,7 @@ function App() {
 
   useEffect(() => {
     requestPersistence();
-    seedIfEmpty().then(cleanCatalogOnce);
+    seedIfEmpty();
     if (!location.hash) navigate('/');
   }, []);
 

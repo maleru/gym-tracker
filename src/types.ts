@@ -14,6 +14,8 @@ export interface Exercise {
 }
 
 export interface PlanItem {
+  /** Stabile ID für React-Schlüssel; ältere Einträge haben keine */
+  id?: string;
   exerciseId: string;
   sets: number;
   repMin: number;
@@ -67,6 +69,8 @@ export interface Session {
   /** Spindnummer */
   locker?: string;
   note?: string;
+  /** ISO-Zeitstempel der Speicherung; entscheidet bei gleichem Datum über die Reihenfolge */
+  createdAt?: string;
   log: ExerciseLog[];
 }
 

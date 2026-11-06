@@ -1,0 +1,95 @@
+/* Körperkarte: Legende, Balkenliste, Detail-Panel und Muskel-Auswahl im Übungsformular */
+
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+}
+.swatch.lvl-0 { background: #20242c; }
+.swatch.lvl-1 { background: #1d4d32; }
+.swatch.lvl-2 { background: #2f7a4b; }
+.swatch.lvl-3 { background: #4ade80; }
+.swatch.lvl-4 { background: #fbbf24; }
+
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.detail {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 4px;
+}
+
+.bars {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.bar-btn {
+  display: grid;
+  grid-template-columns: 9rem 1fr 3rem;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 4px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+}
+
+.bar-track {
+  height: 10px;
+  background: #20242c;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.bar-value {
+  text-align: right;
+}
+
+.muscle-picker {
+  margin: 8px 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-radius: 999px;
+}
+
+.chip.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip.primary {
+  background: var(--accent);
+  color: #0f1115;
+  font-weight: 600;
+}

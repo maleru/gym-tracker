@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { getSettings, listPlans, listSessions, saveSettings } from '../db';
+import { getSettings, listPlans, listSessions, updateSettings } from '../db';
 import { nextDay } from '../logic';
 import type { Plan, Session, Settings } from '../types';
 
@@ -40,9 +40,8 @@ export function HomeScreen() {
       .reduce((acc, s) => (s.date > acc ? s.date : acc), '') || 'noch nie';
 
   const setLocker = async (locker: string) => {
-    const next: Settings = { ...settings, lastLocker: locker };
-    setSettings(next);
-    await saveSettings(next);
+    setSettings({ ...settings, lastLocker: locker });
+    await updateSettings((s) => ({ ...s, lastLocker: locker }));
   };
 
   return (

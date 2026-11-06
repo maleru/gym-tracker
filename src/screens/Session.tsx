@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { getSettings, listExercises, listPlans, listSessions, saveSession, saveSettings } from '../db';
+import { getSettings, listExercises, listPlans, listSessions, saveSession, updateSettings } from '../db';
 import { DecimalInput } from '../components/DecimalInput';
-import { lastPerformance, progressionHint } from '../logic';
+import { localDate } from '../date';
+import { lastPerformance } from '../logic';
 import { navigate } from '../router';
 import type { Exercise, Plan, PlanDay, PlanItem, Session, SetLog, Settings } from '../types';
 
@@ -15,22 +16,44 @@ interface Row {
   exercise?: Exercise;
   alt?: Exercise;
   sets: SetLog[];
-  hint?: string;
+  /** Nur UI-Zustand: nur abgehakte Sätze werden gespeichert. */
+  done: boolean[];
   lastText?: string;
   note?: string;
 }
 
+/** Zwischenstand eines laufenden Trainings, im localStorage gehalten. */
+interface Draft {
+  locker: string;
+  note: string;
+  rows: { sets: SetLog[]; done: boolean[]; note?: string }[];
+}
+
 const uid = (): string => crypto.randomUUID();
-const today = (): string => new Date().toISOString().slice(0, 10);
+const today = (): string => localDate();
+
+function readDraft(key: string): Draft | undefined {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Draft) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function SessionScreen({ planId, dayId }: Props) {
+  const draftKey = `draft:${planId}:${dayId}`;
   const [plan, setPlan] = useState<Plan | null>();
   const [day, setDay] = useState<PlanDay>();
   const [rows, setRows] = useState<Row[]>([]);
   const [settings, setSettings] = useState<Settings>();
   const [locker, setLocker] = useState('');
   const [note, setNote] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [resumed, setResumed] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -45,36 +68,71 @@ export function SessionScreen({ planId, dayId }: Props) {
       setPlan(p);
       setDay(d);
       setSettings(st);
-      setLocker(st.lastLocker ?? '');
-      if (!d) return;
+      if (!d) {
+        setLoaded(true);
+        return;
+      }
 
       const exById = new Map(ex.map((e) => [e.id, e]));
-      setRows(
-        d.items.map((item) => {
-          const exercise = exById.get(item.exerciseId);
-          const last = lastPerformance(item.exerciseId, ses, planId);
-          const lastAny = last ?? lastPerformance(item.exerciseId, ses);
-          const hint = exercise
-            ? progressionHint(item, lastAny, st.increments, exercise.equipment)
-            : undefined;
-          const lastText = lastAny
-            ? `Zuletzt ${lastAny.date}: ${lastAny.sets.map((s) => `${s.w}×${s.r}`).join(', ')}`
-            : undefined;
-          const startW = lastAny?.sets[0]?.w ?? item.weight ?? 0;
-          const sets: SetLog[] = Array.from({ length: item.sets }, () => ({ w: startW, r: item.repMin }));
-          return {
-            item,
-            exercise,
-            alt: item.altId ? exById.get(item.altId) : undefined,
-            sets,
-            hint: hint?.text,
-            lastText,
-            note: undefined,
-          };
-        }),
-      );
+      const built: Row[] = d.items.map((item) => {
+        const exercise = exById.get(item.exerciseId);
+        const last = lastPerformance(item.exerciseId, ses, planId);
+        const lastAny = last ?? lastPerformance(item.exerciseId, ses);
+        const lastText = lastAny
+          ? `Zuletzt ${lastAny.date}: ${lastAny.sets.map((s) => `${s.w}×${s.r}`).join(', ')}`
+          : undefined;
+        // Jeder Satz übernimmt das Gewicht des gleichnummerigen Satzes vom letzten Mal
+        const sets: SetLog[] = Array.from({ length: item.sets }, (_, i) => {
+          const prev = lastAny?.sets[Math.min(i, (lastAny?.sets.length ?? 1) - 1)];
+          return { w: prev?.w ?? item.weight ?? 0, r: item.repMin };
+        });
+        return {
+          item,
+          exercise,
+          alt: item.altId ? exById.get(item.altId) : undefined,
+          sets,
+          done: sets.map(() => false),
+          lastText,
+          note: undefined,
+        };
+      });
+
+      const draft = readDraft(draftKey);
+      if (draft && draft.rows.length === built.length) {
+        setLocker(draft.locker);
+        setNote(draft.note);
+        setRows(
+          built.map((r, i) => ({
+            ...r,
+            sets: draft.rows[i].sets,
+            done: draft.rows[i].done,
+            note: draft.rows[i].note,
+          })),
+        );
+        setResumed(true);
+      } else {
+        setLocker(st.lastLocker ?? '');
+        setRows(built);
+      }
+      setLoaded(true);
     })();
   }, [planId, dayId]);
+
+  // Entwurf bei jeder Änderung speichern, solange das Training nicht gespeichert ist
+  useEffect(() => {
+    if (!loaded || saved || !day) return;
+    const hasProgress = note.trim() !== '' || rows.some((r) => r.done.some(Boolean) || !!r.note?.trim());
+    if (!hasProgress) {
+      localStorage.removeItem(draftKey);
+      return;
+    }
+    const draft: Draft = {
+      locker,
+      note,
+      rows: rows.map((r) => ({ sets: r.sets, done: r.done, note: r.note })),
+    };
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+  }, [rows, locker, note, loaded, saved]);
 
   if (plan === undefined || settings === undefined) return <p class="muted">Lade …</p>;
   if (!plan || !day) return <p>Trainingstag nicht gefunden.</p>;
@@ -91,24 +149,42 @@ export function SessionScreen({ planId, dayId }: Props) {
       ),
     );
 
+  const toggleDone = (rowIdx: number, setIdx: number, checked: boolean) =>
+    setRows((rs) =>
+      rs.map((r, i) =>
+        i !== rowIdx ? r : { ...r, done: r.done.map((d, j) => (j === setIdx ? checked : d)) },
+      ),
+    );
+
   const save = async () => {
+    if (busy || saved) return;
+    setBusy(true);
+    setError('');
     const session: Session = {
       id: uid(),
       planId,
       dayId,
       date: today(),
+      createdAt: new Date().toISOString(),
       locker: locker.trim() || undefined,
       note: note.trim() || undefined,
       log: rows.map((r) => ({
         exerciseId: r.item.exerciseId,
-        sets: r.sets.filter((s) => s.w > 0 || s.r > 0),
+        sets: r.sets.filter((_, i) => r.done[i]),
         note: r.note?.trim() || undefined,
       })),
     };
-    await saveSession(session);
-    if (settings) await saveSettings({ ...settings, lastLocker: locker.trim() || settings.lastLocker });
-    setSaved(true);
-    setTimeout(() => navigate('/'), 600);
+    try {
+      await saveSession(session);
+      const lastLocker = locker.trim();
+      if (lastLocker) await updateSettings((s) => ({ ...s, lastLocker }));
+      localStorage.removeItem(draftKey);
+      setSaved(true);
+      setTimeout(() => navigate('/'), 600);
+    } catch (err) {
+      setError(`Speichern fehlgeschlagen: ${(err as Error).message}`);
+      setBusy(false);
+    }
   };
 
   return (
@@ -117,6 +193,8 @@ export function SessionScreen({ planId, dayId }: Props) {
         ‹ Start
       </a>
       <h1>{day.name}</h1>
+
+      {resumed && <p class="hint">Angefangenes Training wiederhergestellt.</p>}
 
       <div class="card">
         <label>
@@ -138,7 +216,6 @@ export function SessionScreen({ planId, dayId }: Props) {
           {row.item.hint && <div class="note">⚠️ {row.item.hint}</div>}
           {row.alt && <div class="muted">Alternative: {row.alt.name}</div>}
           {row.lastText && <div class="muted">{row.lastText}</div>}
-          {row.hint && <div class="hint">💡 {row.hint}</div>}
           <label>
             Notiz zu dieser Übung
             <input
@@ -150,8 +227,16 @@ export function SessionScreen({ planId, dayId }: Props) {
 
           <div class="sets">
             {row.sets.map((s, setIdx) => (
-              <div class="set">
-                <span class="muted">#{setIdx + 1}</span>
+              <div class={`set${row.done[setIdx] ? ' done' : ''}`}>
+                <label class="check setno">
+                  <input
+                    type="checkbox"
+                    checked={row.done[setIdx]}
+                    aria-label={`Satz ${setIdx + 1} erledigt`}
+                    onChange={(e) => toggleDone(rowIdx, setIdx, e.currentTarget.checked)}
+                  />
+                  <span class="muted">#{setIdx + 1}</span>
+                </label>
                 <Stepper
                   value={s.w}
                   step={row.exercise ? settings.increments[row.exercise.equipment] || 1 : 1}
@@ -172,8 +257,10 @@ export function SessionScreen({ planId, dayId }: Props) {
         </label>
       </div>
 
-      <button class="primary big" onClick={save} disabled={saved}>
-        {saved ? 'Gespeichert ✓' : 'Training speichern'}
+      {error && <p class="hint">{error}</p>}
+
+      <button class="primary big" onClick={save} disabled={busy || saved}>
+        {saved ? 'Gespeichert ✓' : busy ? 'Speichere …' : 'Training speichern'}
       </button>
     </section>
   );

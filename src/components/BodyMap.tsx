@@ -14,8 +14,8 @@ interface Region {
 }
 
 const FRONT: Region[] = [
-  { muscle: 'schulter', shape: 'ellipse', x: 40, y: 62, w: 16, h: 14 },
-  { muscle: 'schulter', shape: 'ellipse', x: 104, y: 62, w: 16, h: 14 },
+  { muscle: 'schulter_seite', shape: 'ellipse', x: 40, y: 62, w: 16, h: 14 },
+  { muscle: 'schulter_seite', shape: 'ellipse', x: 104, y: 62, w: 16, h: 14 },
   { muscle: 'brust', shape: 'rect', x: 56, y: 66, w: 48, h: 26 },
   { muscle: 'bizeps', shape: 'rect', x: 34, y: 80, w: 12, h: 30 },
   { muscle: 'bizeps', shape: 'rect', x: 114, y: 80, w: 12, h: 30 },
@@ -27,9 +27,9 @@ const FRONT: Region[] = [
 ];
 
 const BACK: Region[] = [
-  { muscle: 'schulter', shape: 'ellipse', x: 40, y: 62, w: 16, h: 14 },
-  { muscle: 'schulter', shape: 'ellipse', x: 104, y: 62, w: 16, h: 14 },
-  { muscle: 'ruecken', shape: 'rect', x: 56, y: 66, w: 48, h: 60 },
+  { muscle: 'schulter_hinten', shape: 'ellipse', x: 40, y: 62, w: 16, h: 14 },
+  { muscle: 'schulter_hinten', shape: 'ellipse', x: 104, y: 62, w: 16, h: 14 },
+  { muscle: 'lat', shape: 'rect', x: 56, y: 66, w: 48, h: 60 },
   { muscle: 'trizeps', shape: 'rect', x: 34, y: 80, w: 12, h: 30 },
   { muscle: 'trizeps', shape: 'rect', x: 114, y: 80, w: 12, h: 30 },
   { muscle: 'gluteus', shape: 'rect', x: 56, y: 130, w: 48, h: 26 },

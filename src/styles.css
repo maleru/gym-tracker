@@ -247,9 +247,25 @@ a.big {
 
 .set {
   display: grid;
-  grid-template-columns: 28px 1fr 1fr;
+  grid-template-columns: 76px 1fr 1fr;
   align-items: center;
   gap: 8px;
+}
+
+.set.done {
+  opacity: 0.7;
+}
+
+.setno {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.setno input {
+  width: auto;
+  margin: 0;
 }
 
 .stepper {
@@ -378,12 +394,4 @@ a.big {
   stroke: var(--border);
 }
 
-.bodyfig .muscle {
-  fill: var(--accent);
-  cursor: pointer;
-}
 
-.bodyfig .muscle.selected {
-  stroke: #fff;
-  stroke-width: 2;
-}

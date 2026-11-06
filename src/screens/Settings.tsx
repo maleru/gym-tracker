@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'preact/hooks';
 import { DecimalInput } from '../components/DecimalInput';
-import { DEFAULT_INCREMENTS, exportAll, getSettings, importAll, saveSettings } from '../db';
+import { DEFAULT_INCREMENTS, exportAll, getSettings, importAll, updateSettings } from '../db';
+import { localDate } from '../date';
 import type { Equipment, Settings } from '../types';
 
-const EQUIPMENT: Equipment[] = ['KH', 'LH', 'SZ', 'Kabel', 'Maschine'];
+const EQUIPMENT: Equipment[] = ['KH', 'LH', 'SZ', 'Kabel', 'Maschine', 'Koerper'];
+
+const EQUIPMENT_LABEL: Record<Equipment, string> = {
+  KH: 'KH',
+  LH: 'LH',
+  SZ: 'SZ',
+  Kabel: 'Kabel',
+  Maschine: 'Maschine',
+  Koerper: 'Körper',
+};
 
 export function SettingsScreen() {
   const [settings, setSettings] = useState<Settings>();
@@ -15,15 +25,14 @@ export function SettingsScreen() {
 
   if (!settings) return <p class="muted">Lade …</p>;
 
-  const persist = async (next: Settings) => {
-    setSettings(next);
-    await saveSettings(next);
+  const setInc = async (eq: Equipment, value: number) => {
+    setSettings({ ...settings, increments: { ...settings.increments, [eq]: value } });
+    setSettings(await updateSettings((s) => ({ ...s, increments: { ...s.increments, [eq]: value } })));
   };
 
-  const setInc = (eq: Equipment, value: number) =>
-    persist({ ...settings, increments: { ...settings.increments, [eq]: value } });
-
-  const resetIncrements = () => persist({ ...settings, increments: { ...DEFAULT_INCREMENTS } });
+  const resetIncrements = async () => {
+    setSettings(await updateSettings((s) => ({ ...s, increments: { ...DEFAULT_INCREMENTS } })));
+  };
 
   const download = async () => {
     const json = await exportAll();
@@ -31,9 +40,10 @@ export function SettingsScreen() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gym-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `gym-backup-${localDate()}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Sofort widerrufen kann den Download auf iOS abbrechen
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     setStatus('Backup erstellt.');
   };
 
@@ -41,7 +51,8 @@ export function SettingsScreen() {
     if (!confirm('Alle aktuellen Daten werden durch das Backup ersetzt. Fortfahren?')) return;
     try {
       await importAll(await file.text());
-      setStatus('Import erfolgreich. Bitte App neu laden.');
+      setStatus('Import erfolgreich. App wird neu geladen …');
+      setTimeout(() => location.reload(), 800);
     } catch (err) {
       setStatus(`Import fehlgeschlagen: ${(err as Error).message}`);
     }
@@ -64,7 +75,7 @@ export function SettingsScreen() {
         <div class="grid2">
           {EQUIPMENT.map((eq) => (
             <label>
-              {eq}
+              {EQUIPMENT_LABEL[eq]}
               <DecimalInput value={settings.increments[eq]} onChange={(v) => v >= 0 && setInc(eq, v)} />
             </label>
           ))}
@@ -86,7 +97,10 @@ export function SettingsScreen() {
             type="file"
             accept="application/json"
             onChange={(e) => {
-              const f = e.currentTarget.files?.[0];
+              const input = e.currentTarget;
+              const f = input.files?.[0];
+              // Zurücksetzen, damit dieselbe Datei erneut gewählt werden kann
+              input.value = '';
               if (f) restore(f);
             }}
           />

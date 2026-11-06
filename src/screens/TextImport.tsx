@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
-import { savePlan } from '../db';
+import { saveExercise, savePlan } from '../db';
+import { localDate } from '../date';
 import { navigate } from '../router';
 import { parsePlanText, toPlanItems } from '../textImport';
 import type { Exercise, Plan, PlanDay } from '../types';
@@ -14,8 +15,9 @@ interface Props {
 export function TextImport({ catalog }: Props) {
   const [text, setText] = useState('');
   const [name, setName] = useState('');
-  const [start, setStart] = useState(new Date().toISOString().slice(0, 10));
+  const [start, setStart] = useState(localDate());
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const preview = useMemo(() => {
     if (!text.trim()) return null;
@@ -28,6 +30,17 @@ export function TextImport({ catalog }: Props) {
   const save = async () => {
     if (!preview) return;
     setBusy(true);
+    try {
+      // Geräteeinstellungen aus dem Text nur an Übungen ohne eigene Einstellung übernehmen
+      for (const d of preview) {
+        for (const u of d.settingUpdates) {
+          const ex = catalog.find((x) => x.id === u.exerciseId);
+          if (ex) await saveExercise({ ...ex, setting: u.setting });
+        }
+      }
+    } catch {
+      // Einstellungen sind optional; der Plan wird trotzdem angelegt
+    }
     const days: PlanDay[] = preview
       .filter((d) => d.items.length > 0)
       .map((d) => ({ id: uid(), name: d.name, items: d.items }));
@@ -40,8 +53,13 @@ export function TextImport({ catalog }: Props) {
       active: false,
       days,
     };
-    await savePlan(plan);
-    navigate(`/plans/${plan.id}`);
+    try {
+      await savePlan(plan);
+      navigate(`/plans/${plan.id}`);
+    } catch (err) {
+      setError(`Speichern fehlgeschlagen: ${(err as Error).message}`);
+      setBusy(false);
+    }
   };
 
   return (

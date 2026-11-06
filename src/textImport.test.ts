@@ -31,10 +31,10 @@ describe('parsePlanText', () => {
     expect(fly).toMatchObject({ setting: '(5;2)', weight: 70 });
   });
 
-  it('übernimmt Dezimalgewichte mit Komma und Plus-Zeichen als Hinweis', () => {
+  it('übernimmt Dezimalgewichte mit Komma und behält das Plus-Zeichen als Hinweis', () => {
     const seit = days[0].items.find((i) => i.name === 'Seitheben Kabelzug');
     expect(seit?.weight).toBe(6.25);
-    expect(seit?.hint).toBeUndefined();
+    expect(seit?.hint).toBe('+');
   });
 
   it('behält Zusatztext als Hinweis', () => {
@@ -57,8 +57,18 @@ describe('matchExercise', () => {
   it('findet exakte Treffer ohne Groß-/Kleinschreibung', () => {
     expect(matchExercise('bankdrücken kh', catalog)?.id).toBe('b');
   });
-  it('findet Teiltreffer', () => {
+  it('findet eindeutige Teiltreffer', () => {
     expect(matchExercise('Fly', catalog)?.id).toBe('f');
+  });
+  it('rät nicht bei mehrdeutigen Teiltreffern', () => {
+    const ambiguous: Exercise[] = [
+      { id: 'c1', name: 'Curls KH', equipment: 'KH', muscles: ['bizeps'] },
+      { id: 'c2', name: 'Curls SZ', equipment: 'SZ', muscles: ['bizeps'] },
+    ];
+    expect(matchExercise('Curls', ambiguous)).toBeUndefined();
+  });
+  it('ignoriert Groß-/Kleinschreibung und doppelte Leerzeichen', () => {
+    expect(matchExercise('  BANKDRÜCKEN    kh ', catalog)?.id).toBe('b');
   });
   it('liefert undefined ohne Treffer', () => {
     expect(matchExercise('Kniebeuge', catalog)).toBeUndefined();
@@ -66,6 +76,16 @@ describe('matchExercise', () => {
 });
 
 describe('toPlanItems', () => {
+  it('gibt Geräteeinstellungen nur für Übungen ohne eigene Einstellung zurück', () => {
+    const catalog: Exercise[] = [
+      { id: 'f', name: 'Fly Maschine', equipment: 'Maschine', muscles: ['brust'] },
+      { id: 'g', name: 'Fly Gerät', equipment: 'Maschine', muscles: ['brust'], setting: '(1;1)' },
+    ];
+    const withSetting = [{ name: 'Fly Maschine', sets: 3, repMin: 10, repMax: 12, setting: '(5;2)' }];
+    const withOwn = [{ name: 'Fly Gerät', sets: 3, repMin: 10, repMax: 12, setting: '(5;2)' }];
+    expect(toPlanItems(withSetting, catalog).settingUpdates).toEqual([{ exerciseId: 'f', setting: '(5;2)' }]);
+    expect(toPlanItems(withOwn, catalog).settingUpdates).toEqual([]);
+  });
   it('meldet fehlende Übungen statt sie zu erfinden', () => {
     const catalog: Exercise[] = [{ id: 'b', name: 'Bankdrücken KH', equipment: 'KH', muscles: ['brust'] }];
     const { items, missing } = toPlanItems(

@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Exercise, Plan, Session, Settings } from './types';
+import type { Equipment, Exercise, Plan, Session, Settings } from './types';
 
 interface GymDB extends DBSchema {
   exercises: { key: string; value: Exercise };
@@ -50,18 +50,31 @@ export async function requestPersistence(): Promise<boolean> {
   return false;
 }
 
+/** Ergänzt fehlende Schrittweiten (z. B. ältere Backups) um die Defaults. */
+export function normalizeSettings(s: Settings): Settings {
+  return { ...s, key: 'settings', increments: { ...DEFAULT_INCREMENTS, ...s.increments } };
+}
+
+/**
+ * Liest, ändert und schreibt die Settings in einer einzigen readwrite-Transaktion.
+ * Verhindert, dass parallele Schreibvorgänge sich gegenseitig überschreiben.
+ */
+export async function updateSettings(mutate: (s: Settings) => Settings): Promise<Settings> {
+  const db = await getDb();
+  const tx = db.transaction('settings', 'readwrite');
+  const store = tx.objectStore('settings');
+  const current = normalizeSettings((await store.get('settings')) ?? { key: 'settings', increments: { ...DEFAULT_INCREMENTS } });
+  const next = normalizeSettings(mutate(current));
+  await store.put(next);
+  await tx.done;
+  return next;
+}
+
 export async function getSettings(): Promise<Settings> {
   const db = await getDb();
   const stored = await db.get('settings', 'settings');
-  if (stored) return stored;
-  const initial: Settings = { key: 'settings', increments: { ...DEFAULT_INCREMENTS } };
-  await db.put('settings', initial);
-  return initial;
-}
-
-export async function saveSettings(s: Settings): Promise<void> {
-  const db = await getDb();
-  await db.put('settings', s);
+  if (stored) return normalizeSettings(stored);
+  return updateSettings((s) => s);
 }
 
 export async function listPlans(): Promise<Plan[]> {
@@ -109,16 +122,31 @@ export async function exportAll(): Promise<string> {
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 const isStr = (v: unknown): v is string => typeof v === 'string';
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const EQUIPMENT_VALUES: readonly string[] = ['KH', 'LH', 'SZ', 'Kabel', 'Maschine', 'Koerper'];
 
 /** Prüft die Felder jedes Eintrags, bevor etwas gelöscht wird. */
-function validateBackup(data: unknown): void {
+export function validateBackup(data: unknown): void {
   if (!isObj(data)) throw new Error('Ungültiges Backup: keine Objektstruktur');
-  const { exercises, plans, sessions } = data;
+  if (data.version !== undefined && (!isNum(data.version) || data.version > DB_VERSION)) {
+    throw new Error('Backup stammt aus einer neueren App-Version');
+  }
+  const { exercises, plans, sessions, settings } = data;
   if (!Array.isArray(exercises) || !Array.isArray(plans) || !Array.isArray(sessions)) {
     throw new Error('Ungültiges Backup: exercises, plans oder sessions fehlen');
   }
+  if (settings !== undefined && !Array.isArray(settings)) {
+    throw new Error('Ungültiges Backup: settings muss eine Liste sein');
+  }
   for (const e of exercises) {
-    if (!isObj(e) || !isStr(e.id) || !isStr(e.name) || !isStr(e.equipment) || !Array.isArray(e.muscles)) {
+    if (
+      !isObj(e) ||
+      !isStr(e.id) ||
+      !isStr(e.name) ||
+      !isStr(e.equipment) ||
+      !EQUIPMENT_VALUES.includes(e.equipment) ||
+      !Array.isArray(e.muscles) ||
+      !e.muscles.every(isStr)
+    ) {
       throw new Error('Ungültige Übung im Backup');
     }
   }
@@ -164,6 +192,6 @@ export async function importAll(json: string): Promise<void> {
   for (const e of d.exercises) await tx.objectStore('exercises').put(e);
   for (const p of d.plans) await tx.objectStore('plans').put(p);
   for (const s of d.sessions) await tx.objectStore('sessions').put(s);
-  for (const s of d.settings ?? []) await tx.objectStore('settings').put(s);
+  for (const s of d.settings ?? []) await tx.objectStore('settings').put(normalizeSettings(s));
   await tx.done;
 }

@@ -1,4 +1,4 @@
-import type { Equipment, Plan, PlanDay, PlanItem, Session, SetLog } from './types';
+import type { Plan, PlanDay, Session, SetLog } from './types';
 
 export interface LastPerformance {
   date: string;
@@ -6,8 +6,9 @@ export interface LastPerformance {
   note?: string;
 }
 
-/** Geschätztes 1RM nach Epley. */
+/** Geschätztes 1RM nach Epley. Sätze ohne Wiederholungen zählen nicht (0). */
 export function estimate1RM(weight: number, reps: number): number {
+  if (reps <= 0) return 0;
   return reps === 1 ? weight : weight * (1 + reps / 30);
 }
 
@@ -17,7 +18,9 @@ export function lastPerformance(
   sessions: Session[],
   planId?: string,
 ): LastPerformance | undefined {
-  const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+  const sorted = [...sessions].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
+  );
   for (const s of sorted) {
     if (planId && s.planId !== planId) continue;
     const entry = s.log.find((l) => l.exerciseId === exerciseId);
@@ -40,43 +43,3 @@ export function nextDay(plan: Plan, sessions: Session[]): PlanDay | undefined {
   return best?.day;
 }
 
-export type Hint =
-  | { kind: 'up'; text: string }
-  | { kind: 'hold'; text: string }
-  | { kind: 'same'; text: string };
-
-/** Hinweis für das nächste Training anhand der letzten Sätze. */
-export function progressionHint(
-  item: PlanItem,
-  last: LastPerformance | undefined,
-  increments: Record<Equipment, number>,
-  equipment: Equipment,
-): Hint | undefined {
-  if (!last || last.sets.length === 0) return undefined;
-  const maxW = Math.max(...last.sets.map((s) => s.w));
-  const inc = increments[equipment];
-  if (last.sets.every((s) => s.r >= item.repMax)) {
-    return { kind: 'up', text: `Alle Sätze geschafft → ${maxW + inc} kg versuchen` };
-  }
-  if (last.sets.some((s) => s.r < item.repMin)) {
-    return { kind: 'hold', text: `Unter ${item.repMin} Wdh. → ${maxW} kg halten` };
-  }
-  return { kind: 'same', text: `Bei ${maxW} kg Wdh. steigern` };
-}
-
-/**
- * Gewichtsvorschlag für einen Ziel-Wiederholungsbereich,
- * abgeleitet aus dem geschätzten 1RM der letzten Sätze.
- */
-export function suggestWeight(
-  last: LastPerformance,
-  repMin: number,
-  repMax: number,
-  increment: number,
-): number {
-  const oneRM = Math.max(...last.sets.map((s) => estimate1RM(s.w, s.r)));
-  const targetReps = Math.round((repMin + repMax) / 2);
-  const raw = oneRM / (1 + targetReps / 30);
-  if (increment <= 0) return Math.round(raw * 4) / 4;
-  return Math.round(raw / increment) * increment;
-}

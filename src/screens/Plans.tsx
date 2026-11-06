@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
-import {
-  deletePlan,
-  getSettings,
-  listExercises,
-  listPlans,
-  listSessions,
-  savePlan,
-} from '../db';
-import { lastPerformance, suggestWeight } from '../logic';
+import { deletePlan, listExercises, listPlans, savePlan } from '../db';
+import { localDate } from '../date';
 import { navigate } from '../router';
 import { ExerciseCatalog } from './ExerciseEditor';
 import { TextImport } from './TextImport';
-import type { Equipment, Exercise, Plan, PlanDay, PlanItem, Session, Settings } from '../types';
+import type { Equipment, Exercise, Plan, PlanDay, PlanItem } from '../types';
 
 const uid = (): string => crypto.randomUUID();
-const today = (): string => new Date().toISOString().slice(0, 10);
+const today = (): string => localDate();
 const EQUIPMENT: Equipment[] = ['KH', 'LH', 'SZ', 'Kabel', 'Maschine', 'Koerper'];
 const byName = (a: { name: string }, b: { name: string }): number => a.name.localeCompare(b.name, 'de');
 
@@ -154,26 +147,17 @@ export function PlansScreen() {
 export function PlanEditor({ id }: { id: string }) {
   const [plan, setPlan] = useState<Plan | null | undefined>(undefined);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [increments, setIncrements] = useState<Settings['increments']>();
   const [picked, setPicked] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
-      const [plans, ex, ses, st] = await Promise.all([
-        listPlans(),
-        listExercises(),
-        listSessions(),
-        getSettings(),
-      ]);
+      const [plans, ex] = await Promise.all([listPlans(), listExercises()]);
       setPlan(plans.find((p) => p.id === id) ?? null);
       setExercises(ex.sort(byName));
-      setSessions(ses);
-      setIncrements(st.increments);
     })();
   }, [id]);
 
-  if (plan === undefined || !increments) return <p class="muted">Lade …</p>;
+  if (plan === undefined) return <p class="muted">Lade …</p>;
   if (plan === null) return <p>Plan nicht gefunden.</p>;
 
   const commit = async (next: Plan) => {
@@ -187,15 +171,6 @@ export function PlanEditor({ id }: { id: string }) {
 
   const exById = new Map(exercises.map((x) => [x.id, x]));
 
-  const suggestionFor = (item: PlanItem): string | undefined => {
-    const ex = exById.get(item.exerciseId);
-    const last = lastPerformance(item.exerciseId, sessions);
-    if (!last) return undefined;
-    const top = last.sets.map((s) => `${s.w} kg × ${s.r}`).join(', ');
-    const w = suggestWeight(last, item.repMin, item.repMax, ex ? increments[ex.equipment] : 0);
-    return `Zuletzt am ${last.date}: ${top} → Vorschlag ${item.repMin}–${item.repMax} Wdh.: ${w} kg`;
-  };
-
   const addDay = () =>
     commit({
       ...plan,
@@ -205,7 +180,7 @@ export function PlanEditor({ id }: { id: string }) {
   const addItem = (day: PlanDay) => {
     const exerciseId = picked[day.id];
     if (!exerciseId) return;
-    const item: PlanItem = { exerciseId, sets: 3, repMin: 8, repMax: 12 };
+    const item: PlanItem = { id: uid(), exerciseId, sets: 3, repMin: 8, repMax: 12 };
     commit(updateDay(plan, day.id, (d) => ({ ...d, items: [...d.items, item] })));
   };
 
@@ -274,7 +249,10 @@ export function PlanEditor({ id }: { id: string }) {
             />
             <button
               class="danger"
-              onClick={() => commit({ ...plan, days: plan.days.filter((d) => d.id !== day.id) })}
+              onClick={() => {
+                if (!confirm(`Tag „${day.name}“ mit allen Übungen löschen?`)) return;
+                commit({ ...plan, days: plan.days.filter((d) => d.id !== day.id) });
+              }}
             >
               Tag löschen
             </button>
@@ -282,11 +260,10 @@ export function PlanEditor({ id }: { id: string }) {
 
           {day.items.map((item, idx) => (
             <ItemRow
-              key={`${item.exerciseId}-${idx}`}
+              key={item.id ?? `${item.exerciseId}-${idx}`}
               item={item}
               exercise={exById.get(item.exerciseId)}
               exercises={exercises}
-              hint={suggestionFor(item)}
               onChange={(patch) => patchItem(day, idx, patch)}
               onMove={(dir) => moveItem(day, idx, dir)}
               onRemove={() => removeItem(day, idx)}
@@ -326,13 +303,12 @@ interface ItemRowProps {
   item: PlanItem;
   exercise?: Exercise;
   exercises: Exercise[];
-  hint?: string;
   onChange: (patch: Partial<PlanItem>) => void;
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
 }
 
-function ItemRow({ item, exercise, exercises, hint, onChange, onMove, onRemove }: ItemRowProps) {
+function ItemRow({ item, exercise, exercises, onChange, onMove, onRemove }: ItemRowProps) {
   return (
     <div class="item">
       <div class="row">
@@ -350,14 +326,15 @@ function ItemRow({ item, exercise, exercises, hint, onChange, onMove, onRemove }
         </span>
       </div>
       {exercise?.note && <div class="note">📝 {exercise.note}</div>}
-      {hint && <div class="hint">💡 {hint}</div>}
 
       <div class="grid4">
-        <NumField label="Sätze" value={item.sets} onChange={(v) => onChange({ sets: v ?? 0 })} />
-        <NumField label="Min" value={item.repMin} onChange={(v) => onChange({ repMin: v ?? 0 })} />
-        <NumField label="Max" value={item.repMax} onChange={(v) => onChange({ repMax: v ?? 0 })} />
+        {/* Nur Werte ab 1 übernehmen; leere Eingaben bleiben im Feld, ohne auf 0 zu springen */}
+        <NumField label="Sätze" value={item.sets} onChange={(v) => v !== undefined && v >= 1 && onChange({ sets: v })} />
+        <NumField label="Min" value={item.repMin} onChange={(v) => v !== undefined && v >= 1 && onChange({ repMin: v })} />
+        <NumField label="Max" value={item.repMax} onChange={(v) => v !== undefined && v >= 1 && onChange({ repMax: v })} />
         <NumField label="Gewicht" value={item.weight} onChange={(v) => onChange({ weight: v })} />
       </div>
+      {item.repMin > item.repMax && <div class="hint">Min ist größer als Max</div>}
 
       <div class="grid2">
         <label>

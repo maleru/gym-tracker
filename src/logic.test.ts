@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { estimate1RM, nextDay, progressionHint, suggestWeight, lastPerformance } from './logic';
-import type { Plan, PlanItem, Session } from './types';
-
-const inc = { KH: 2, LH: 2.5, SZ: 2.5, Kabel: 1.25, Maschine: 5, Koerper: 0 };
-const item: PlanItem = { exerciseId: 'x', sets: 3, repMin: 8, repMax: 12 };
+import { estimate1RM, nextDay, lastPerformance } from './logic';
+import type { Plan, Session } from './types';
 
 const session = (id: string, date: string, dayId = 'd1', w = 40, r = 10): Session => ({
   id,
@@ -20,31 +17,8 @@ describe('estimate1RM', () => {
   it('rechnet nach Epley', () => {
     expect(estimate1RM(40, 10)).toBeCloseTo(53.33, 2);
   });
-});
-
-describe('progressionHint', () => {
-  it('schlägt mehr Gewicht vor, wenn alle Sätze den oberen Bereich erreichen', () => {
-    const hint = progressionHint(item, { date: '2026-01-01', sets: [{ w: 40, r: 12 }, { w: 40, r: 12 }] }, inc, 'KH');
-    expect(hint?.kind).toBe('up');
-    expect(hint?.text).toContain('42');
-  });
-  it('rät zum Halten, wenn ein Satz unter dem unteren Bereich liegt', () => {
-    const hint = progressionHint(item, { date: '2026-01-01', sets: [{ w: 40, r: 6 }] }, inc, 'KH');
-    expect(hint?.kind).toBe('hold');
-  });
-  it('gibt nichts zurück ohne Vorwerte', () => {
-    expect(progressionHint(item, undefined, inc, 'KH')).toBeUndefined();
-  });
-});
-
-describe('suggestWeight', () => {
-  it('rundet auf die Schrittweite des Geräts', () => {
-    const w = suggestWeight({ date: '2026-01-01', sets: [{ w: 40, r: 10 }] }, 10, 12, 2.5);
-    expect(w % 2.5).toBeCloseTo(0, 5);
-  });
-  it('liefert bei Schrittweite 0 ein Viertel-Kilo-Raster', () => {
-    const w = suggestWeight({ date: '2026-01-01', sets: [{ w: 40, r: 10 }] }, 10, 10, 0);
-    expect(w * 4).toBeCloseTo(Math.round(w * 4), 5);
+  it('zählt einen Satz ohne Wiederholungen nicht als 1RM', () => {
+    expect(estimate1RM(100, 0)).toBe(0);
   });
 });
 
@@ -57,6 +31,14 @@ describe('lastPerformance', () => {
   it('filtert nach Plan', () => {
     const other = { ...session('c', '2026-03-01'), planId: 'p2' };
     expect(lastPerformance('x', [other], 'p1')).toBeUndefined();
+  });
+});
+
+describe('lastPerformance bei gleichem Datum', () => {
+  it('nimmt bei zwei Sessions am selben Tag die zuletzt gespeicherte', () => {
+    const early = { ...session('a', '2026-03-01', 'd1', 40), createdAt: '2026-03-01T18:00:00.000Z' };
+    const late = { ...session('b', '2026-03-01', 'd1', 45), createdAt: '2026-03-01T19:30:00.000Z' };
+    expect(lastPerformance('x', [late, early])?.sets[0].w).toBe(45);
   });
 });
 

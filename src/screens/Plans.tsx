@@ -177,8 +177,7 @@ export function PlanEditor({ id }: { id: string }) {
   };
 
   const reloadExercises = async () => {
-    const { listExercises: load } = await import('../db');
-    setExercises((await load()).sort(byName));
+    setExercises((await listExercises()).sort(byName));
   };
 
   const exById = new Map(exercises.map((x) => [x.id, x]));

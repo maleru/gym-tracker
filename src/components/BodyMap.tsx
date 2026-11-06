@@ -39,8 +39,16 @@ const BACK: Region[] = [
   { muscle: 'waden', shape: 'rect', x: 86, y: 208, w: 16, h: 44 },
 ];
 
+interface FigureProps {
+  regions: Region[];
+  intensity: Record<string, number>;
+  title: string;
+  selected: string | null;
+  onPick: (muscle: string) => void;
+}
+
 /** Zeichnet die Regionen; Intensität 0..1 steuert die Deckkraft. */
-function Figure({ regions, intensity, title }: { regions: Region[]; intensity: Record<string, number>; title: string }) {
+function Figure({ regions, intensity, title, selected, onPick }: FigureProps) {
   return (
     <figure class="bodyfig">
       <svg viewBox="0 0 160 260" role="img" aria-label={title}>
@@ -49,9 +57,10 @@ function Figure({ regions, intensity, title }: { regions: Region[]; intensity: R
         {regions.map((r) => {
           const v = intensity[r.muscle] ?? 0;
           const common = {
-            class: 'muscle',
+            class: `muscle${selected === r.muscle ? ' selected' : ''}`,
             'data-muscle': r.muscle,
             'fill-opacity': v > 0 ? 0.25 + 0.75 * v : 0,
+            onClick: () => onPick(r.muscle),
           };
           return r.shape === 'ellipse' ? (
             <ellipse cx={r.x + r.w / 2} cy={r.y + r.h / 2} rx={r.w / 2} ry={r.h / 2} {...common} />
@@ -65,11 +74,17 @@ function Figure({ regions, intensity, title }: { regions: Region[]; intensity: R
   );
 }
 
-export function BodyMap({ intensity }: { intensity: Record<string, number> }) {
+interface BodyMapProps {
+  intensity: Record<string, number>;
+  selected: string | null;
+  onPick: (muscle: string) => void;
+}
+
+export function BodyMap({ intensity, selected, onPick }: BodyMapProps) {
   return (
     <div class="bodymap">
-      <Figure regions={FRONT} intensity={intensity} title="Vorderseite" />
-      <Figure regions={BACK} intensity={intensity} title="Rückseite" />
+      <Figure regions={FRONT} intensity={intensity} title="Vorderseite" selected={selected} onPick={onPick} />
+      <Figure regions={BACK} intensity={intensity} title="Rückseite" selected={selected} onPick={onPick} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ interface Row {
   sets: SetLog[];
   hint?: string;
   lastText?: string;
+  note?: string;
 }
 
 const uid = (): string => crypto.randomUUID();
@@ -67,6 +68,7 @@ export function SessionScreen({ planId, dayId }: Props) {
             sets,
             hint: hint?.text,
             lastText,
+            note: undefined,
           };
         }),
       );
@@ -75,6 +77,9 @@ export function SessionScreen({ planId, dayId }: Props) {
 
   if (plan === undefined || settings === undefined) return <p class="muted">Lade …</p>;
   if (!plan || !day) return <p>Trainingstag nicht gefunden.</p>;
+
+  const updateNote = (rowIdx: number, note: string) =>
+    setRows((rs) => rs.map((r, i) => (i === rowIdx ? { ...r, note } : r)));
 
   const updateSet = (rowIdx: number, setIdx: number, patch: Partial<SetLog>) =>
     setRows((rs) =>
@@ -96,6 +101,7 @@ export function SessionScreen({ planId, dayId }: Props) {
       log: rows.map((r) => ({
         exerciseId: r.item.exerciseId,
         sets: r.sets.filter((s) => s.w > 0 || s.r > 0),
+        note: r.note?.trim() || undefined,
       })),
     };
     await saveSession(session);
@@ -132,6 +138,14 @@ export function SessionScreen({ planId, dayId }: Props) {
           {row.alt && <div class="muted">Alternative: {row.alt.name}</div>}
           {row.lastText && <div class="muted">{row.lastText}</div>}
           {row.hint && <div class="hint">💡 {row.hint}</div>}
+          <label>
+            Notiz zu dieser Übung
+            <input
+              value={row.note ?? ''}
+              placeholder="z. B. Gewicht war schwer, Schulter zog"
+              onInput={(e) => updateNote(rowIdx, e.currentTarget.value)}
+            />
+          </label>
 
           <div class="sets">
             {row.sets.map((s, setIdx) => (

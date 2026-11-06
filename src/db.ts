@@ -106,13 +106,53 @@ export async function exportAll(): Promise<string> {
   return JSON.stringify(data, null, 2);
 }
 
-/** Ersetzt alle Daten durch das Backup. Validierung ist minimal (Struktur). */
-export async function importAll(json: string): Promise<void> {
-  const data = JSON.parse(json);
-  const isArr = (v: unknown) => Array.isArray(v);
-  if (!isArr(data.exercises) || !isArr(data.plans) || !isArr(data.sessions)) {
-    throw new Error('Ungültiges Backup-Format');
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+const isStr = (v: unknown): v is string => typeof v === 'string';
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** Prüft die Felder jedes Eintrags, bevor etwas gelöscht wird. */
+function validateBackup(data: unknown): void {
+  if (!isObj(data)) throw new Error('Ungültiges Backup: keine Objektstruktur');
+  const { exercises, plans, sessions } = data;
+  if (!Array.isArray(exercises) || !Array.isArray(plans) || !Array.isArray(sessions)) {
+    throw new Error('Ungültiges Backup: exercises, plans oder sessions fehlen');
   }
+  for (const e of exercises) {
+    if (!isObj(e) || !isStr(e.id) || !isStr(e.name) || !isStr(e.equipment) || !Array.isArray(e.muscles)) {
+      throw new Error('Ungültige Übung im Backup');
+    }
+  }
+  for (const p of plans) {
+    if (!isObj(p) || !isStr(p.id) || !isStr(p.name) || !isStr(p.start) || !isNum(p.weeks) || !Array.isArray(p.days)) {
+      throw new Error('Ungültiger Plan im Backup');
+    }
+    for (const d of p.days as unknown[]) {
+      if (!isObj(d) || !isStr(d.id) || !Array.isArray(d.items)) throw new Error('Ungültiger Trainingstag im Backup');
+      for (const it of d.items as unknown[]) {
+        if (!isObj(it) || !isStr(it.exerciseId) || !isNum(it.sets) || !isNum(it.repMin) || !isNum(it.repMax)) {
+          throw new Error('Ungültige Übung im Plan');
+        }
+      }
+    }
+  }
+  for (const s of sessions) {
+    if (!isObj(s) || !isStr(s.id) || !isStr(s.planId) || !isStr(s.dayId) || !isStr(s.date) || !Array.isArray(s.log)) {
+      throw new Error('Ungültige Trainingseinheit im Backup');
+    }
+    for (const l of s.log as unknown[]) {
+      if (!isObj(l) || !isStr(l.exerciseId) || !Array.isArray(l.sets)) throw new Error('Ungültiger Satz im Backup');
+      for (const set of l.sets as unknown[]) {
+        if (!isObj(set) || !isNum(set.w) || !isNum(set.r)) throw new Error('Ungültiger Satz im Backup');
+      }
+    }
+  }
+}
+
+/** Ersetzt alle Daten durch das Backup. Validiert vorher alle Einträge. */
+export async function importAll(json: string): Promise<void> {
+  const data: unknown = JSON.parse(json);
+  validateBackup(data);
+  const d = data as { exercises: Exercise[]; plans: Plan[]; sessions: Session[]; settings?: Settings[] };
   const db = await getDb();
   const tx = db.transaction(['exercises', 'plans', 'sessions', 'settings'], 'readwrite');
   await Promise.all([
@@ -121,9 +161,9 @@ export async function importAll(json: string): Promise<void> {
     tx.objectStore('sessions').clear(),
     tx.objectStore('settings').clear(),
   ]);
-  for (const e of data.exercises) await tx.objectStore('exercises').put(e);
-  for (const p of data.plans) await tx.objectStore('plans').put(p);
-  for (const s of data.sessions) await tx.objectStore('sessions').put(s);
-  for (const s of data.settings ?? []) await tx.objectStore('settings').put(s);
+  for (const e of d.exercises) await tx.objectStore('exercises').put(e);
+  for (const p of d.plans) await tx.objectStore('plans').put(p);
+  for (const s of d.sessions) await tx.objectStore('sessions').put(s);
+  for (const s of d.settings ?? []) await tx.objectStore('settings').put(s);
   await tx.done;
 }

@@ -63,6 +63,11 @@ a {
   font-size: 0.9rem;
 }
 
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+}
+
 .strong {
   font-weight: 600;
   color: var(--text);
@@ -375,4 +380,10 @@ a.big {
 
 .bodyfig .muscle {
   fill: var(--accent);
+  cursor: pointer;
+}
+
+.bodyfig .muscle.selected {
+  stroke: #fff;
+  stroke-width: 2;
 }

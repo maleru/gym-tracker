@@ -5,11 +5,12 @@ import {
   listExercises,
   listPlans,
   listSessions,
-  saveExercise,
   savePlan,
 } from '../db';
 import { lastPerformance, suggestWeight } from '../logic';
 import { navigate } from '../router';
+import { ExerciseCatalog } from './ExerciseEditor';
+import { TextImport } from './TextImport';
 import type { Equipment, Exercise, Plan, PlanDay, PlanItem, Session, Settings } from '../types';
 
 const uid = (): string => crypto.randomUUID();
@@ -36,6 +37,7 @@ function updateDay(plan: Plan, dayId: string, fn: (d: PlanDay) => PlanDay): Plan
 
 export function PlansScreen() {
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [name, setName] = useState('');
   const [split, setSplit] = useState('3er Push/Pull/Beine');
   const [start, setStart] = useState(today());
@@ -48,6 +50,7 @@ export function PlansScreen() {
 
   useEffect(() => {
     reload();
+    listExercises().then((ex) => setExercises(ex.sort(byName)));
   }, []);
 
   const create = async (e: Event) => {
@@ -116,6 +119,8 @@ export function PlansScreen() {
           Plan anlegen
         </button>
       </form>
+
+      <TextImport catalog={exercises} />
 
       <ul class="list">
         {plans.map((p) => (
@@ -306,8 +311,8 @@ export function PlanEditor({ id }: { id: string }) {
       <button onClick={addDay}>+ Tag</button>
 
       <div class="card">
-        <h2>Neue Übung im Katalog</h2>
-        <NewExercise onCreated={reloadExercises} />
+        <h2>Übungskatalog</h2>
+        <ExerciseCatalog exercises={exercises} onChanged={reloadExercises} />
       </div>
     </section>
   );
@@ -427,70 +432,3 @@ function NumField({ label, value, onChange }: { label: string; value?: number; o
   );
 }
 
-function NewExercise({ onCreated }: { onCreated: () => Promise<void> }) {
-  const [name, setName] = useState('');
-  const [equipment, setEquipment] = useState<Equipment>('KH');
-  const [muscles, setMuscles] = useState('');
-  const [note, setNote] = useState('');
-  const [setting, setSetting] = useState('');
-
-  const submit = async (e: Event) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    const ex: Exercise = {
-      id: uid(),
-      name: name.trim(),
-      equipment,
-      muscles: muscles
-        .split(',')
-        .map((m) => m.trim().toLowerCase())
-        .filter(Boolean),
-      note: note.trim() || undefined,
-      setting: setting.trim() || undefined,
-    };
-    await saveExercise(ex);
-    await onCreated();
-    setName('');
-    setMuscles('');
-    setNote('');
-    setSetting('');
-  };
-
-  return (
-    <form onSubmit={submit}>
-      <label>
-        Name
-        <input value={name} onInput={(e) => setName(e.currentTarget.value)} />
-      </label>
-      <div class="grid2">
-        <label>
-          Gerät
-          <select value={equipment} onChange={(e) => setEquipment(e.currentTarget.value as Equipment)}>
-            {EQUIPMENT.map((eq) => (
-              <option value={eq}>{eq}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Einstellung
-          <input value={setting} placeholder="z. B. (5;2)" onInput={(e) => setSetting(e.currentTarget.value)} />
-        </label>
-      </div>
-      <label>
-        Muskeln (Komma-getrennt, primär zuerst)
-        <input value={muscles} placeholder="brust, trizeps" onInput={(e) => setMuscles(e.currentTarget.value)} />
-      </label>
-      <label>
-        Allgemeine Notiz
-        <input
-          value={note}
-          placeholder="z. B. Schultern unten lassen"
-          onInput={(e) => setNote(e.currentTarget.value)}
-        />
-      </label>
-      <button type="submit" class="primary">
-        Übung speichern
-      </button>
-    </form>
-  );
-}

@@ -20,6 +20,7 @@ export function StatsScreen() {
   const [loaded, setLoaded] = useState(false);
   const [bodyPlanId, setBodyPlanId] = useState('');
   const [BodyMap, setBodyMap] = useState<BodyMapComponent | null>(null);
+  const [pickedMuscle, setPickedMuscle] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([listExercises(), listSessions(), listPlans()]).then(([ex, ses, pl]) => {
@@ -105,11 +106,30 @@ export function StatsScreen() {
           </select>
         </label>
         {BodyMap ? (
-          <BodyMap intensity={normalize(muscleLoad(sessions, exercises, bodyPlanId || undefined))} />
+          <BodyMap
+            intensity={normalize(muscleLoad(sessions, exercises, bodyPlanId || undefined))}
+            selected={pickedMuscle}
+            onPick={(m) => setPickedMuscle(pickedMuscle === m ? null : m)}
+          />
         ) : (
           <p class="muted">Körperkarte lädt …</p>
         )}
-        <p class="muted">Dunkler = mehr Sätze. Primärer Muskel zählt voll, Hilfsmuskeln halb.</p>
+        <p class="muted">Dunkler = mehr Sätze. Antippen zeigt die Übungen des Muskels.</p>
+        {pickedMuscle && (
+          <div>
+            <h2>{pickedMuscle}</h2>
+            <ul class="list">
+              {exercises
+                .filter((x) => x.muscles.includes(pickedMuscle))
+                .map((x) => (
+                  <li class="item">
+                    <span class="strong">{x.name}</span>
+                    <span class="muted"> · {x.equipment}</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -67,6 +67,14 @@ export function SettingsScreen() {
       </div>
 
       <div class="card">
+        <h2>Version</h2>
+        <p class="mono">
+          v{__APP_VERSION__} · {__GIT_HASH__} · Build {__BUILD_DATE__}
+        </p>
+        <p class="muted">Diese Angabe hilft beim Prüfen, ob die neueste Version installiert ist.</p>
+      </div>
+
+      <div class="card">
         <h2>Backup</h2>
         <p class="muted">Deine Daten liegen nur auf diesem Gerät. Erstelle regelmäßig ein Backup.</p>
         <button class="primary" onClick={download}>

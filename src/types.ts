@@ -75,4 +75,6 @@ export interface Settings {
   /** Schrittweiten je Equipment in kg */
   increments: Record<Equipment, number>;
   lastLocker?: string;
+  /** Einmalige Bereinigung der Katalog-Notizen durchgeführt */
+  catalogCleaned?: boolean;
 }

@@ -1,4 +1,4 @@
-import { getDb } from './db';
+import { getDb, getSettings, saveSettings } from './db';
 import type { Exercise } from './types';
 
 /**
@@ -50,6 +50,24 @@ const EXERCISES: Exercise[] = [
   { id: 'bauch-maschine', name: 'Bauch Maschine', equipment: 'Maschine', muscles: ['bauch'] },
   { id: 'bauch-heben-kh', name: 'Bauch heben mit KH', equipment: 'KH', muscles: ['bauch'] },
 ];
+
+/**
+ * Entfernt einmalig Notizen und Geräteeinstellungen aus dem bereits gespeicherten Katalog.
+ * Nötig, weil der Seed nur bei leerer Datenbank läuft und ältere Stände die Infos enthalten.
+ */
+export async function cleanCatalogOnce(): Promise<void> {
+  const settings = await getSettings();
+  if (settings.catalogCleaned) return;
+  const db = await getDb();
+  const all = await db.getAll('exercises');
+  const tx = db.transaction('exercises', 'readwrite');
+  for (const ex of all) {
+    const { note: _note, setting: _setting, ...rest } = ex;
+    tx.store.put(rest as Exercise);
+  }
+  await tx.done;
+  await saveSettings({ ...settings, catalogCleaned: true });
+}
 
 export async function seedIfEmpty(): Promise<void> {
   const db = await getDb();

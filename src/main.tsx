@@ -7,7 +7,7 @@ import { HomeScreen } from './screens/Home';
 import { PlanEditor, PlansScreen } from './screens/Plans';
 import { SessionScreen } from './screens/Session';
 import { SettingsScreen } from './screens/Settings';
-import { Placeholder } from './screens/Placeholder';
+import { StatsScreen } from './screens/Stats';
 import './styles.css';
 
 const TABS = [
@@ -25,7 +25,7 @@ function Router({ route }: { route: string }) {
     case '/plans':
       return <PlansScreen />;
     case '/stats':
-      return <Placeholder title="Fortschritt" />;
+      return <StatsScreen />;
     case '/settings':
       return <SettingsScreen />;
     default:

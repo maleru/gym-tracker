@@ -300,3 +300,49 @@ a.big {
 .tabbar a.active {
   color: var(--accent);
 }
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 4px;
+}
+
+.chart .axis {
+  stroke: var(--border);
+}
+
+.chart .line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart .dot {
+  fill: var(--accent);
+}
+
+.chart .val {
+  fill: var(--text);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.chart .lbl {
+  fill: var(--muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.delta {
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+.delta.up {
+  color: var(--accent);
+}
+
+.delta.down {
+  color: var(--danger);
+}

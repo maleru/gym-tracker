@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { getSettings, listExercises, listPlans, listSessions, saveSession, saveSettings } from '../db';
+import { DecimalInput } from '../components/DecimalInput';
 import { lastPerformance, progressionHint } from '../logic';
 import { navigate } from '../router';
 import type { Exercise, Plan, PlanDay, PlanItem, Session, SetLog, Settings } from '../types';
@@ -195,15 +196,7 @@ function Stepper({
       <button onClick={() => onChange(round(Math.max(0, value - step)))} aria-label={`${unit} runter`}>
         −
       </button>
-      <input
-        type="text"
-        inputMode="decimal"
-        value={String(value).replace('.', ',')}
-        onInput={(e) => {
-          const n = Number(e.currentTarget.value.replace(',', '.'));
-          if (!Number.isNaN(n)) onChange(n);
-        }}
-      />
+      <DecimalInput value={value} onChange={onChange} />
       <button onClick={() => onChange(round(value + step))} aria-label={`${unit} hoch`}>
         +
       </button>

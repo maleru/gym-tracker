@@ -13,12 +13,12 @@ interface GymDB extends DBSchema {
 }
 
 export const DEFAULT_INCREMENTS: Settings['increments'] = {
-  KH: 2,
-  LH: 2.5,
-  SZ: 2.5,
-  Kabel: 1.25,
-  Maschine: 5,
-  Koerper: 0,
+  KH: 1,
+  LH: 1,
+  SZ: 1,
+  Kabel: 1,
+  Maschine: 1,
+  Koerper: 1,
 };
 
 const DB_NAME = 'gym-tracker';

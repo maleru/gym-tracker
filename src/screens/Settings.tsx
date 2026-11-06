@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
-import { exportAll, getSettings, importAll, saveSettings } from '../db';
+import { DecimalInput } from '../components/DecimalInput';
+import { DEFAULT_INCREMENTS, exportAll, getSettings, importAll, saveSettings } from '../db';
 import type { Equipment, Settings } from '../types';
 
 const EQUIPMENT: Equipment[] = ['KH', 'LH', 'SZ', 'Kabel', 'Maschine'];
@@ -14,11 +15,15 @@ export function SettingsScreen() {
 
   if (!settings) return <p class="muted">Lade …</p>;
 
-  const setInc = async (eq: Equipment, value: number) => {
-    const next: Settings = { ...settings, increments: { ...settings.increments, [eq]: value } };
+  const persist = async (next: Settings) => {
     setSettings(next);
     await saveSettings(next);
   };
+
+  const setInc = (eq: Equipment, value: number) =>
+    persist({ ...settings, increments: { ...settings.increments, [eq]: value } });
+
+  const resetIncrements = () => persist({ ...settings, increments: { ...DEFAULT_INCREMENTS } });
 
   const download = async () => {
     const json = await exportAll();
@@ -47,31 +52,26 @@ export function SettingsScreen() {
       <h1>Einstellungen</h1>
 
       <div class="card">
-        <h2>Schrittweiten (kg)</h2>
-        <div class="grid2">
-          {EQUIPMENT.map((eq) => (
-            <label>
-              {eq}
-              <input
-                type="text"
-                inputMode="decimal"
-                value={String(settings.increments[eq]).replace('.', ',')}
-                onInput={(e) => {
-                  const n = Number(e.currentTarget.value.replace(',', '.'));
-                  if (!Number.isNaN(n) && n >= 0) setInc(eq, n);
-                }}
-              />
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div class="card">
         <h2>Version</h2>
         <p class="mono">
           v{__APP_VERSION__} · {__GIT_HASH__} · Build {__BUILD_DATE__}
         </p>
         <p class="muted">Diese Angabe hilft beim Prüfen, ob die neueste Version installiert ist.</p>
+      </div>
+
+      <div class="card">
+        <h2>Schrittweiten (kg)</h2>
+        <div class="grid2">
+          {EQUIPMENT.map((eq) => (
+            <label>
+              {eq}
+              <DecimalInput value={settings.increments[eq]} onChange={(v) => v >= 0 && setInc(eq, v)} />
+            </label>
+          ))}
+        </div>
+        <button class="gap" onClick={resetIncrements}>
+          Alle auf 1,0 setzen
+        </button>
       </div>
 
       <div class="card">

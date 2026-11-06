@@ -2,7 +2,10 @@ import { useEffect, useState } from 'preact/hooks';
 import { listExercises, listPlans, listSessions } from '../db';
 import { exerciseHistory, METRIC_LABEL, percentChange, type Metric } from '../history';
 import { LineChart } from '../components/LineChart';
+import { muscleLoad, normalize } from '../muscles';
 import type { Exercise, Plan, Session } from '../types';
+
+type BodyMapComponent = typeof import('../components/BodyMap').BodyMap;
 
 const byName = (a: Exercise, b: Exercise): number => a.name.localeCompare(b.name, 'de');
 const fmtDate = (iso: string): string => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
@@ -15,6 +18,8 @@ export function StatsScreen() {
   const [planId, setPlanId] = useState('');
   const [metric, setMetric] = useState<Metric>('oneRM');
   const [loaded, setLoaded] = useState(false);
+  const [bodyPlanId, setBodyPlanId] = useState('');
+  const [BodyMap, setBodyMap] = useState<BodyMapComponent | null>(null);
 
   useEffect(() => {
     Promise.all([listExercises(), listSessions(), listPlans()]).then(([ex, ses, pl]) => {
@@ -23,6 +28,8 @@ export function StatsScreen() {
       setPlans(pl);
       setLoaded(true);
     });
+    // Körperkarte erst bei Bedarf nachladen
+    import('../components/BodyMap').then((m) => setBodyMap(() => m.BodyMap));
   }, []);
 
   if (!loaded) return <p class="muted">Lade …</p>;
@@ -84,6 +91,25 @@ export function StatsScreen() {
             {change.toFixed(1).replace('.', ',')} % seit dem ersten Training
           </p>
         )}
+      </div>
+
+      <div class="card">
+        <h2>Muskelbelastung</h2>
+        <label>
+          Plan
+          <select value={bodyPlanId} onChange={(e) => setBodyPlanId(e.currentTarget.value)}>
+            <option value="">Alle Pläne</option>
+            {plans.map((p) => (
+              <option value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+        {BodyMap ? (
+          <BodyMap intensity={normalize(muscleLoad(sessions, exercises, bodyPlanId || undefined))} />
+        ) : (
+          <p class="muted">Körperkarte lädt …</p>
+        )}
+        <p class="muted">Dunkler = mehr Sätze. Primärer Muskel zählt voll, Hilfsmuskeln halb.</p>
       </div>
     </section>
   );

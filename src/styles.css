@@ -346,3 +346,33 @@ a.big {
 .delta.down {
   color: var(--danger);
 }
+
+.bodymap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.bodyfig {
+  margin: 0;
+  text-align: center;
+}
+
+.bodyfig svg {
+  width: 100%;
+  height: auto;
+}
+
+.bodyfig figcaption {
+  font-size: 0.8rem;
+}
+
+.bodyfig .silhouette {
+  fill: #20242c;
+  stroke: var(--border);
+}
+
+.bodyfig .muscle {
+  fill: var(--accent);
+}

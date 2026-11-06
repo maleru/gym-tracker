@@ -402,33 +402,39 @@ function ItemRow({ item, exercise, exercises, hint, onChange, onMove, onRemove }
   );
 }
 
-const fmt = (v?: number): string => (v === undefined ? '' : String(v).replace('.', ','));
-const parse = (raw: string): number | undefined => {
-  if (raw.trim() === '') return undefined;
-  const n = Number(raw.replace(',', '.'));
-  return Number.isNaN(n) ? undefined : n;
-};
-
-/** Zahlenfeld, das "6,25" erlaubt, ohne das Komma beim Tippen zu verschlucken. */
+/** Zahlenfeld für optionale Werte. Leer bleibt leer, ohne automatisch auf 0 zu springen. */
 function NumField({ label, value, onChange }: { label: string; value?: number; onChange: (v?: number) => void }) {
+  return (
+    <label>
+      {label}
+      <OptionalDecimal value={value} onChange={onChange} />
+    </label>
+  );
+}
+
+function OptionalDecimal({ value, onChange }: { value?: number; onChange: (v?: number) => void }) {
+  const fmt = (v?: number): string => (v === undefined ? '' : String(v).replace('.', ','));
+  const parse = (raw: string): number | undefined => {
+    const t = raw.trim().replace(',', '.');
+    if (t === '' || t === '.') return undefined;
+    const n = Number(t);
+    return Number.isNaN(n) ? undefined : n;
+  };
   const [text, setText] = useState(fmt(value));
   useEffect(() => {
     if (parse(text) !== value) setText(fmt(value));
   }, [value]);
   return (
-    <label>
-      {label}
-      <input
-        type="text"
-        inputMode="decimal"
-        value={text}
-        onInput={(e) => {
-          const raw = e.currentTarget.value;
-          setText(raw);
-          onChange(parse(raw));
-        }}
-      />
-    </label>
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onInput={(e) => {
+        const raw = e.currentTarget.value;
+        setText(raw);
+        onChange(parse(raw));
+      }}
+    />
   );
 }
 

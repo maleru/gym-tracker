@@ -1,0 +1,302 @@
+:root {
+  --bg: #0f1115;
+  --card: #1a1d24;
+  --field: #0f1115;
+  --border: #262a33;
+  --text: #e8e8ea;
+  --muted: #8a8f9a;
+  --accent: #4ade80;
+  --danger: #f87171;
+  --radius: 12px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+main {
+  flex: 1;
+  padding: 16px 16px 96px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 8px 0 12px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 12px 0 8px;
+}
+
+p {
+  margin: 8px 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.strong {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 4px 0;
+}
+
+.hint {
+  background: #1f2a22;
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+  margin: 6px 0;
+}
+
+.back {
+  display: inline-block;
+  margin-top: 4px;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin: 12px 0;
+  display: block;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gap {
+  margin-top: 8px;
+}
+
+.btns {
+  display: flex;
+  gap: 4px;
+}
+
+.badge {
+  background: var(--accent);
+  color: #0f1115;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 8px 0;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+}
+
+label.check input {
+  width: auto;
+  margin: 0;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+input.dayname {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+button,
+.button {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #22262f;
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: center;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+button.primary,
+a.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1115;
+  font-weight: 600;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button.big,
+a.big {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  font-size: 1.1rem;
+  margin: 12px 0;
+}
+
+.item {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+}
+
+.item:first-of-type {
+  border-top: none;
+}
+
+.sets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.set {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepper button {
+  padding: 10px 0;
+  font-size: 1.1rem;
+}
+
+.stepper input {
+  text-align: center;
+  margin: 0;
+}
+
+.stepper .muted {
+  font-size: 0.8rem;
+  padding-left: 2px;
+}
+
+.file {
+  margin-top: 16px;
+}
+
+.file input {
+  margin-top: 8px;
+}
+
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--card);
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--border);
+}
+
+.tabbar a {
+  flex: 1;
+  text-align: center;
+  padding: 12px 4px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.tabbar a.active {
+  color: var(--accent);
+}

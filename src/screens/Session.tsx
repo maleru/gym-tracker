@@ -260,6 +260,11 @@ export function SessionScreen({ planId, dayId }: Props) {
             {row.item.hint && <div class="note">{row.item.hint}</div>}
 
             <div class="sets">
+              <div class="set set-head" aria-hidden="true">
+                <span>Satz</span>
+                <span>Gewicht (kg)</span>
+                <span>Wdh.</span>
+              </div>
               {row.sets.map((s, setIdx) => (
                 <div class={`set compact${row.done[setIdx] ? ' done' : ''}`}>
                   <label class="check setno">

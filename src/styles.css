@@ -164,6 +164,17 @@ a {
   gap: 8px;
 }
 
+/* Grid-Kinder dürfen schrumpfen, sonst drückt das Datumsfeld die Spalte auf */
+.grid2 > label {
+  min-width: 0;
+}
+
+input[type='date'] {
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 0.95rem;
+}
+
 .grid4 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -460,9 +471,38 @@ a.big {
   padding: 8px 12px;
 }
 
-.set.compact {
-  grid-template-columns: 56px 1fr 1fr;
+.set.compact,
+.set-head {
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
+}
+
+.set-head {
+  display: grid;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Kompakte Stepper: nur Knöpfe und Zahlenfeld, Einheit steht im Spaltenkopf */
+.set.compact .stepper {
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  gap: 2px;
+}
+
+.set.compact .stepper .muted {
+  display: none;
+}
+
+.set.compact .stepper button {
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.set.compact .stepper input {
+  min-width: 0;
+  padding: 8px 4px;
+  font-size: 1rem;
 }
 
 .details {

@@ -1,19 +1,26 @@
 import { useEffect, useState } from 'preact/hooks';
-import { getSettings, listPlans, listSessions, updateSettings } from '../db';
-import { nextDay } from '../logic';
-import type { Plan, Session, Settings } from '../types';
+import { getSettings, listExercises, listPlans, listSessions, updateSettings } from '../db';
+import { nextDay, summarizeItem } from '../logic';
+import type { Exercise, Plan, Session, Settings } from '../types';
 
 export function HomeScreen() {
   const [plan, setPlan] = useState<Plan | null | undefined>(undefined);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [settings, setSettings] = useState<Settings>();
+  const [exercises, setExercises] = useState<Exercise[]>([]);
 
   useEffect(() => {
     (async () => {
-      const [plans, ses, st] = await Promise.all([listPlans(), listSessions(), getSettings()]);
+      const [plans, ses, st, ex] = await Promise.all([
+        listPlans(),
+        listSessions(),
+        getSettings(),
+        listExercises(),
+      ]);
       setPlan(plans.find((p) => p.active) ?? null);
       setSessions(ses);
       setSettings(st);
+      setExercises(ex);
     })();
   }, []);
 
@@ -34,6 +41,7 @@ export function HomeScreen() {
   }
 
   const next = nextDay(plan, sessions);
+  const exById = new Map(exercises.map((e) => [e.id, e]));
   const lastDate = (dayId: string): string =>
     sessions
       .filter((s) => s.planId === plan.id && s.dayId === dayId)
@@ -46,8 +54,10 @@ export function HomeScreen() {
 
   return (
     <section>
-      <h1>Start</h1>
-      <div class="muted">{plan.name}</div>
+      <div class="row">
+        <h1>Start</h1>
+        <span class="muted">{plan.name}</span>
+      </div>
 
       <label class="card">
         Spindnummer
@@ -67,11 +77,29 @@ export function HomeScreen() {
       <h2>Tage</h2>
       <ul class="list">
         {plan.days.map((d) => (
-          <li class="card">
-            <a href={`#/train/${plan.id}/${d.id}`} class="strong">
-              {d.name}
+          <li>
+            <a href={`#/train/${plan.id}/${d.id}`} class="card daylink">
+              <span>
+                <span class="strong">{d.name}</span>
+                <span class="muted">Zuletzt: {lastDate(d.id)}</span>
+              </span>
+              <span class="daylink-arrow" aria-hidden="true">
+                ›
+              </span>
             </a>
-            <div class="muted">Zuletzt: {lastDate(d.id)}</div>
+            {d.items.length > 0 && (
+              <details class="details day-preview">
+                <summary>Übungen · {d.items.length}</summary>
+                <ul class="list">
+                  {d.items.map((item) => (
+                    <li class="preview-row">
+                      <span>{exById.get(item.exerciseId)?.name ?? 'Unbekannte Übung'}</span>
+                      <span class="muted">{summarizeItem(item)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </li>
         ))}
       </ul>

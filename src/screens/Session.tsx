@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
 import { getSettings, listExercises, listPlans, listSessions, saveSession, updateSettings } from '../db';
 import { DecimalInput } from '../components/DecimalInput';
-import { localDate } from '../date';
-import { lastPerformance } from '../logic';
+import { isIsoDate, localDate } from '../date';
+import { lastPerformance, summarizeItem, summarizeSets } from '../logic';
+import { Collapsible } from '../components/Collapsible';
 import { navigate } from '../router';
 import type { Exercise, Plan, PlanDay, PlanItem, Session, SetLog, Settings } from '../types';
 
@@ -26,6 +27,8 @@ interface Row {
 interface Draft {
   locker: string;
   note: string;
+  /** nur gesetzt, wenn das Datum manuell geändert wurde */
+  date?: string;
   rows: { sets: SetLog[]; done: boolean[]; note?: string }[];
 }
 
@@ -49,11 +52,15 @@ export function SessionScreen({ planId, dayId }: Props) {
   const [settings, setSettings] = useState<Settings>();
   const [locker, setLocker] = useState('');
   const [note, setNote] = useState('');
+  const [date, setDate] = useState(today());
+  const [dateTouched, setDateTouched] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  /** Index der aufgeklappten Übung; null = erste offene, -1 = alle zu */
+  const [openRow, setOpenRow] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -101,6 +108,10 @@ export function SessionScreen({ planId, dayId }: Props) {
       if (draft && draft.rows.length === built.length) {
         setLocker(draft.locker);
         setNote(draft.note);
+        if (draft.date && isIsoDate(draft.date)) {
+          setDate(draft.date);
+          setDateTouched(true);
+        }
         setRows(
           built.map((r, i) => ({
             ...r,
@@ -121,7 +132,8 @@ export function SessionScreen({ planId, dayId }: Props) {
   // Entwurf bei jeder Änderung speichern, solange das Training nicht gespeichert ist
   useEffect(() => {
     if (!loaded || saved || !day) return;
-    const hasProgress = note.trim() !== '' || rows.some((r) => r.done.some(Boolean) || !!r.note?.trim());
+    const hasProgress =
+      dateTouched || note.trim() !== '' || rows.some((r) => r.done.some(Boolean) || !!r.note?.trim());
     if (!hasProgress) {
       localStorage.removeItem(draftKey);
       return;
@@ -129,13 +141,19 @@ export function SessionScreen({ planId, dayId }: Props) {
     const draft: Draft = {
       locker,
       note,
+      date: dateTouched ? date : undefined,
       rows: rows.map((r) => ({ sets: r.sets, done: r.done, note: r.note })),
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [rows, locker, note, loaded, saved]);
+  }, [rows, locker, note, date, dateTouched, loaded, saved]);
 
   if (plan === undefined || settings === undefined) return <p class="muted">Lade …</p>;
   if (!plan || !day) return <p>Trainingstag nicht gefunden.</p>;
+
+  // Standard: erste Übung mit offenen Sätzen ist aufgeklappt
+  const activeIdx = openRow ?? rows.findIndex((r) => r.done.some((d) => !d));
+  const totalDone = rows.reduce((acc, r) => acc + r.done.filter(Boolean).length, 0);
+  const totalSets = rows.reduce((acc, r) => acc + r.sets.length, 0);
 
   const updateNote = (rowIdx: number, note: string) =>
     setRows((rs) => rs.map((r, i) => (i === rowIdx ? { ...r, note } : r)));
@@ -149,12 +167,16 @@ export function SessionScreen({ planId, dayId }: Props) {
       ),
     );
 
-  const toggleDone = (rowIdx: number, setIdx: number, checked: boolean) =>
-    setRows((rs) =>
-      rs.map((r, i) =>
-        i !== rowIdx ? r : { ...r, done: r.done.map((d, j) => (j === setIdx ? checked : d)) },
-      ),
-    );
+  const toggleDone = (rowIdx: number, setIdx: number, checked: boolean) => {
+    const nextDone = rows[rowIdx].done.map((d, j) => (j === setIdx ? checked : d));
+    setRows((rs) => rs.map((r, i) => (i !== rowIdx ? r : { ...r, done: nextDone })));
+    // Übung komplett abgehakt: nächste offene Übung aufklappen (zuerst danach, sonst davor)
+    if (checked && nextDone.every(Boolean)) {
+      const open = rows.map((_, i) => i).filter((i) => i !== rowIdx && rows[i].done.some((d) => !d));
+      const later = open.find((i) => i > rowIdx);
+      setOpenRow(later ?? open[0] ?? -1);
+    }
+  };
 
   const save = async () => {
     if (busy || saved) return;
@@ -164,7 +186,7 @@ export function SessionScreen({ planId, dayId }: Props) {
       id: uid(),
       planId,
       dayId,
-      date: today(),
+      date: isIsoDate(date) ? date : today(),
       createdAt: new Date().toISOString(),
       locker: locker.trim() || undefined,
       note: note.trim() || undefined,
@@ -196,59 +218,88 @@ export function SessionScreen({ planId, dayId }: Props) {
 
       {resumed && <p class="hint">Angefangenes Training wiederhergestellt.</p>}
 
-      <div class="card">
+      <div class="card grid2">
         <label>
           Spindnummer
           <input inputMode="numeric" value={locker} onInput={(e) => setLocker(e.currentTarget.value)} />
         </label>
+        <label>
+          Datum
+          <input
+            type="date"
+            max={today()}
+            value={date}
+            onInput={(e) => {
+              setDate(e.currentTarget.value);
+              setDateTouched(true);
+            }}
+          />
+        </label>
       </div>
 
-      {rows.map((row, rowIdx) => (
-        <div class="card">
-          <div class="row">
-            <strong>{row.exercise?.name ?? 'Unbekannte Übung'}</strong>
-            <span class="muted">
-              {row.item.repMin}–{row.item.repMax} Wdh.
-            </span>
-          </div>
-          {row.exercise?.setting && <div class="muted">Einstellung: {row.exercise.setting}</div>}
-          {row.exercise?.note && <div class="note">📝 {row.exercise.note}</div>}
-          {row.item.hint && <div class="note">⚠️ {row.item.hint}</div>}
-          {row.alt && <div class="muted">Alternative: {row.alt.name}</div>}
-          {row.lastText && <div class="muted">{row.lastText}</div>}
-          <label>
-            Notiz zu dieser Übung
-            <input
-              value={row.note ?? ''}
-              placeholder="z. B. Gewicht war schwer, Schulter zog"
-              onInput={(e) => updateNote(rowIdx, e.currentTarget.value)}
-            />
-          </label>
+      {rows.map((row, rowIdx) => {
+        const doneCount = row.done.filter(Boolean).length;
+        const complete = row.sets.length > 0 && doneCount === row.sets.length;
+        const doneSets = row.sets.filter((_, i) => row.done[i]);
+        return (
+          <Collapsible
+            key={rowIdx}
+            class={`card tight${complete ? ' complete' : ''}`}
+            open={activeIdx === rowIdx}
+            onToggle={(o) => setOpenRow(o ? rowIdx : -1)}
+            header={
+              <span class="row">
+                <strong>{row.exercise?.name ?? 'Unbekannte Übung'}</strong>
+                <span class="muted">
+                  {doneCount}/{row.sets.length}
+                </span>
+              </span>
+            }
+            summary={doneSets.length > 0 ? summarizeSets(doneSets) : `Ziel: ${summarizeItem(row.item)}`}
+          >
+            {row.item.hint && <div class="note">{row.item.hint}</div>}
 
-          <div class="sets">
-            {row.sets.map((s, setIdx) => (
-              <div class={`set${row.done[setIdx] ? ' done' : ''}`}>
-                <label class="check setno">
-                  <input
-                    type="checkbox"
-                    checked={row.done[setIdx]}
-                    aria-label={`Satz ${setIdx + 1} erledigt`}
-                    onChange={(e) => toggleDone(rowIdx, setIdx, e.currentTarget.checked)}
+            <div class="sets">
+              {row.sets.map((s, setIdx) => (
+                <div class={`set compact${row.done[setIdx] ? ' done' : ''}`}>
+                  <label class="check setno">
+                    <input
+                      type="checkbox"
+                      checked={row.done[setIdx]}
+                      aria-label={`Satz ${setIdx + 1} erledigt`}
+                      onChange={(e) => toggleDone(rowIdx, setIdx, e.currentTarget.checked)}
+                    />
+                    <span class="muted">#{setIdx + 1}</span>
+                  </label>
+                  <Stepper
+                    value={s.w}
+                    step={row.exercise ? settings.increments[row.exercise.equipment] || 1 : 1}
+                    unit="kg"
+                    onChange={(w) => updateSet(rowIdx, setIdx, { w })}
                   />
-                  <span class="muted">#{setIdx + 1}</span>
-                </label>
-                <Stepper
-                  value={s.w}
-                  step={row.exercise ? settings.increments[row.exercise.equipment] || 1 : 1}
-                  unit="kg"
-                  onChange={(w) => updateSet(rowIdx, setIdx, { w })}
+                  <Stepper value={s.r} step={1} unit="Wdh." onChange={(r) => updateSet(rowIdx, setIdx, { r })} />
+                </div>
+              ))}
+            </div>
+
+            <details class="details">
+              <summary>Details · {row.item.repMin}–{row.item.repMax} Wdh.</summary>
+              {row.exercise?.setting && <div class="muted">Einstellung: {row.exercise.setting}</div>}
+              {row.exercise?.note && <div class="note">📝 {row.exercise.note}</div>}
+              {row.alt && <div class="muted">Alternative: {row.alt.name}</div>}
+              {row.lastText && <div class="muted">{row.lastText}</div>}
+              <label>
+                Notiz zu dieser Übung
+                <input
+                  value={row.note ?? ''}
+                  placeholder="z. B. Gewicht war schwer, Schulter zog"
+                  onInput={(e) => updateNote(rowIdx, e.currentTarget.value)}
                 />
-                <Stepper value={s.r} step={1} unit="Wdh." onChange={(r) => updateSet(rowIdx, setIdx, { r })} />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+              </label>
+            </details>
+          </Collapsible>
+        );
+      })}
 
       <div class="card">
         <label>

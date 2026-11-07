@@ -2,6 +2,8 @@ import { useEffect, useState } from 'preact/hooks';
 import { deletePlan, listExercises, listPlans, savePlan } from '../db';
 import { localDate } from '../date';
 import { navigate } from '../router';
+import { Collapsible } from '../components/Collapsible';
+import { summarizeItem } from '../logic';
 import { ExerciseCatalog } from './ExerciseEditor';
 import { TextImport } from './TextImport';
 import type { Equipment, Exercise, Plan, PlanDay, PlanItem } from '../types';
@@ -79,54 +81,57 @@ export function PlansScreen() {
     <section>
       <h1>Pläne</h1>
 
-      <form class="card" onSubmit={create}>
-        <h2>Neuer Plan</h2>
-        <label>
-          Name
-          <input value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="z. B. 3er Aufbau" />
-        </label>
-        <label>
-          Split
-          <select value={split} onChange={(e) => setSplit(e.currentTarget.value)}>
-            {Object.keys(SPLITS).map((s) => (
-              <option value={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-        <div class="grid2">
+      <Collapsible class="card" header="Neuer Plan">
+        <form onSubmit={create}>
           <label>
-            Start
-            <input type="date" value={start} onInput={(e) => setStart(e.currentTarget.value)} />
+            Name
+            <input value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="z. B. 3er Aufbau" />
           </label>
           <label>
-            Wochen
-            <input
-              type="number"
-              inputMode="numeric"
-              value={weeks}
-              onInput={(e) => setWeeks(Number(e.currentTarget.value) || 6)}
-            />
+            Split
+            <select value={split} onChange={(e) => setSplit(e.currentTarget.value)}>
+              {Object.keys(SPLITS).map((s) => (
+                <option value={s}>{s}</option>
+              ))}
+            </select>
           </label>
-        </div>
-        <button type="submit" class="primary">
-          Plan anlegen
-        </button>
-      </form>
+          <div class="grid2">
+            <label>
+              Start
+              <input type="date" value={start} onInput={(e) => setStart(e.currentTarget.value)} />
+            </label>
+            <label>
+              Wochen
+              <input
+                type="number"
+                inputMode="numeric"
+                value={weeks}
+                onInput={(e) => setWeeks(Number(e.currentTarget.value) || 6)}
+              />
+            </label>
+          </div>
+          <button type="submit" class="primary">
+            Plan anlegen
+          </button>
+        </form>
+      </Collapsible>
 
-      <TextImport catalog={exercises} />
+      <Collapsible class="card" header="Textimport">
+        <TextImport catalog={exercises} />
+      </Collapsible>
 
       <ul class="list">
         {plans.map((p) => (
           <li class="card">
-            <div class="row">
-              <a href={`#/plans/${p.id}`} class="strong">
-                {p.name}
-              </a>
-              {p.active && <span class="badge">aktiv</span>}
-            </div>
-            <div class="muted">
-              {p.split} · seit {p.start} · {p.weeks} Wochen
-            </div>
+            <a href={`#/plans/${p.id}`} class="plan-link">
+              <div class="row">
+                <span class="strong">{p.name}</span>
+                {p.active && <span class="badge">aktiv</span>}
+              </div>
+              <div class="muted">
+                {p.split} · seit {p.start} · {p.weeks} Wochen
+              </div>
+            </a>
             <div class="row gap">
               {!p.active && <button onClick={() => setActive(p)}>Aktivieren</button>}
               <button class="danger" onClick={() => remove(p)}>
@@ -237,7 +242,12 @@ export function PlanEditor({ id }: { id: string }) {
       </div>
 
       {plan.days.map((day) => (
-        <div class="card">
+        <Collapsible
+          key={day.id}
+          class="card"
+          header={day.name}
+          summary={`${day.items.length} ${day.items.length === 1 ? 'Übung' : 'Übungen'}`}
+        >
           <div class="row">
             <input
               class="dayname"
@@ -282,15 +292,14 @@ export function PlanEditor({ id }: { id: string }) {
             </select>
             <button onClick={() => addItem(day)}>+ Übung</button>
           </div>
-        </div>
+        </Collapsible>
       ))}
 
       <button onClick={addDay}>+ Tag</button>
 
-      <div class="card">
-        <h2>Übungskatalog</h2>
+      <Collapsible class="card" header="Übungskatalog">
         <ExerciseCatalog exercises={exercises} onChanged={reloadExercises} />
-      </div>
+      </Collapsible>
     </section>
   );
 }
@@ -310,9 +319,13 @@ interface ItemRowProps {
 
 function ItemRow({ item, exercise, exercises, onChange, onMove, onRemove }: ItemRowProps) {
   return (
-    <div class="item">
+    <Collapsible
+      class="item"
+      header={exercise?.name ?? 'Unbekannte Übung'}
+      summary={summarizeItem(item) + (item.hint ? ` · ${item.hint}` : '')}
+    >
       <div class="row">
-        <strong>{exercise?.name ?? 'Unbekannte Übung'}</strong>
+        <span class="muted">Übung bearbeiten</span>
         <span class="btns">
           <button onClick={() => onMove(-1)} aria-label="nach oben">
             ↑
@@ -375,7 +388,7 @@ function ItemRow({ item, exercise, exercises, onChange, onMove, onRemove }: Item
         />
         Supersatz
       </label>
-    </div>
+    </Collapsible>
   );
 }
 
@@ -414,4 +427,3 @@ function OptionalDecimal({ value, onChange }: { value?: number; onChange: (v?: n
     />
   );
 }
-

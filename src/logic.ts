@@ -1,4 +1,30 @@
-import type { Plan, PlanDay, Session, SetLog } from './types';
+import type { Plan, PlanDay, PlanItem, Session, SetLog } from './types';
+
+/** Zahl in deutscher Schreibweise (Komma statt Punkt). */
+const fmtNum = (n: number): string => String(n).replace('.', ',');
+
+/** Kurzform eines Plan-Eintrags, z. B. "3×8–12 · 40 kg". */
+export function summarizeItem(item: PlanItem): string {
+  const reps = item.repMin === item.repMax ? `${item.repMin}` : `${item.repMin}–${item.repMax}`;
+  const base = `${item.sets}×${reps}`;
+  return item.weight !== undefined ? `${base} · ${fmtNum(item.weight)} kg` : base;
+}
+
+/**
+ * Kurzform geloggter Sätze, z. B. "40×10, 40×10, 35×8".
+ * Aufeinanderfolgende gleiche Sätze werden zusammengefasst: "2× 40×10".
+ */
+export function summarizeSets(sets: SetLog[]): string {
+  const groups: { w: number; r: number; count: number }[] = [];
+  for (const s of sets) {
+    const last = groups[groups.length - 1];
+    if (last && last.w === s.w && last.r === s.r) last.count++;
+    else groups.push({ w: s.w, r: s.r, count: 1 });
+  }
+  return groups
+    .map((g) => (g.count > 1 ? `${g.count}× ${fmtNum(g.w)}×${g.r}` : `${fmtNum(g.w)}×${g.r}`))
+    .join(', ');
+}
 
 export interface LastPerformance {
   date: string;

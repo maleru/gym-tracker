@@ -105,6 +105,28 @@ a {
   display: block;
 }
 
+/* Ganze Karte ist ein Link; Mindesthöhe sorgt für eine große Klickfläche */
+.daylink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.daylink > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.daylink-arrow {
+  font-size: 1.4rem;
+  color: var(--muted);
+}
+
 .list {
   list-style: none;
   padding: 0;
@@ -393,5 +415,92 @@ a.big {
   fill: #20242c;
   stroke: var(--border);
 }
+
+/* Einklappbare Bereiche: Kopf ist eine volle Schaltfläche */
+.collapsible-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.collapsible-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.collapsible-chev {
+  color: var(--muted);
+}
+
+.collapsible-summary {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.collapsible.complete .collapsible-head {
+  color: var(--accent);
+}
+
+/* Kompakte Übungskarte in der Trainingsansicht */
+.tight {
+  margin: 6px 0;
+  padding: 8px 12px;
+}
+
+.set.compact {
+  grid-template-columns: 56px 1fr 1fr;
+  gap: 6px;
+}
+
+.details {
+  margin: 6px 0;
+}
+
+.details > summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.collapsible-body {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+/* Tagesvorschau auf der Startseite */
+.day-preview {
+  margin: -6px 4px 12px;
+}
+
+/* Planliste: Link-Bereich der Karte, Aktionen bleiben darunter */
+.plan-link {
+  display: block;
+  color: var(--text);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+  padding: 3px 0;
+}
+
 
 

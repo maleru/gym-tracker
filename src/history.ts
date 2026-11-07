@@ -1,5 +1,5 @@
-import { estimate1RM } from './logic';
-import type { Session } from './types';
+import { estimate1RM, totalWeight } from './logic';
+import type { Exercise, Session } from './types';
 
 export interface HistoryPoint {
   date: string;
@@ -22,20 +22,31 @@ export const METRIC_LABEL: Record<Metric, string> = {
   volume: 'Volumen (kg × Wdh.)',
 };
 
-/** Verlauf einer Übung über alle Sessions, optional auf einen Plan begrenzt. */
-export function exerciseHistory(exerciseId: string, sessions: Session[], planId?: string): HistoryPoint[] {
+/**
+ * Verlauf einer Übung über alle Sessions, optional auf einen Plan begrenzt.
+ * Gewichte werden über `totalWeight` in Gesamtgewicht umgerechnet (Pro-Seite-Übungen).
+ */
+export function exerciseHistory(
+  exerciseId: string,
+  sessions: Session[],
+  planId?: string,
+  ex?: Pick<Exercise, 'perSide' | 'barWeight'>,
+): HistoryPoint[] {
   return sessions
     .filter((s) => !planId || s.planId === planId)
     .flatMap((s) =>
       s.log
         .filter((l) => l.exerciseId === exerciseId && l.sets.length > 0)
-        .map((l) => ({
-          date: s.date,
-          weight: Math.max(...l.sets.map((x) => x.w)),
-          reps: Math.max(...l.sets.map((x) => x.r)),
-          oneRM: Math.max(...l.sets.map((x) => estimate1RM(x.w, x.r))),
-          volume: l.sets.reduce((acc, x) => acc + x.w * x.r, 0),
-        })),
+        .map((l) => {
+          const totals = l.sets.map((x) => ({ w: totalWeight(ex, x.w), r: x.r }));
+          return {
+            date: s.date,
+            weight: Math.max(...totals.map((x) => x.w)),
+            reps: Math.max(...totals.map((x) => x.r)),
+            oneRM: Math.max(...totals.map((x) => estimate1RM(x.w, x.r))),
+            volume: totals.reduce((acc, x) => acc + x.w * x.r, 0),
+          };
+        }),
     )
     .sort((a, b) => a.date.localeCompare(b.date));
 }

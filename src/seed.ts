@@ -1,4 +1,5 @@
-import { getDb } from './db';
+import { getDb, getSettings, updateSettings } from './db';
+import { withCatalogDefaults } from './catalogDefaults';
 import type { Exercise } from './types';
 
 /**
@@ -51,10 +52,24 @@ const EXERCISES: Exercise[] = [
   { id: 'bauch-heben-kh', name: 'Bauch heben mit KH', equipment: 'KH', muscles: ['bauch'] },
 ];
 
+/** Einmalige Migration: setzt Schrittweite, Pro-Seite und Stange je Übung. */
+export async function migrateExercisesV2(): Promise<void> {
+  const st = await getSettings();
+  if (st.exerciseMigrationV2) return;
+  const db = await getDb();
+  const all = await db.getAll('exercises');
+  const tx = db.transaction('exercises', 'readwrite');
+  for (const ex of all) await tx.store.put(withCatalogDefaults(ex));
+  await tx.done;
+  await updateSettings((s) => ({ ...s, exerciseMigrationV2: true }));
+}
+
 export async function seedIfEmpty(): Promise<void> {
   const db = await getDb();
-  if ((await db.count('exercises')) > 0) return;
-  const tx = db.transaction('exercises', 'readwrite');
-  for (const ex of EXERCISES) await tx.store.put(ex);
-  await tx.done;
+  if ((await db.count('exercises')) === 0) {
+    const tx = db.transaction('exercises', 'readwrite');
+    for (const ex of EXERCISES) await tx.store.put(withCatalogDefaults(ex));
+    await tx.done;
+  }
+  await migrateExercisesV2();
 }

@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { getSettings, listExercises, listPlans, listSessions, saveSession, updateSettings } from '../db';
 import { DecimalInput } from '../components/DecimalInput';
+import { ExerciseForm } from './ExerciseEditor';
 import { isIsoDate, localDate } from '../date';
-import { lastPerformance, summarizeItem, summarizeSets } from '../logic';
+import { defaultStep, lastPerformance, summarizeItem, summarizeSets, totalWeight } from '../logic';
 import { Collapsible } from '../components/Collapsible';
 import { navigate } from '../router';
 import type { Exercise, Plan, PlanDay, PlanItem, Session, SetLog, Settings } from '../types';
+
+const fmtKg = (n: number): string => String(Math.round(n * 100) / 100).replace('.', ',');
+/** Schrittweite einer Übung; ohne Übung (unbekannt) gilt 1 kg */
+const stepOf = (ex?: Exercise): number => (ex ? (ex.step ?? defaultStep(ex)) : 1);
 
 interface Props {
   planId: string;
@@ -61,6 +66,21 @@ export function SessionScreen({ planId, dayId }: Props) {
   const [error, setError] = useState('');
   /** Index der aufgeklappten Übung; null = erste offene, -1 = alle zu */
   const [openRow, setOpenRow] = useState<number | null>(null);
+  /** Index der Übung, deren Einstellungen gerade im Sheet offen sind */
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  /** Verhindert, dass nach dem Speichern noch ein Entwurf geschrieben wird */
+  const savingRef = useRef(false);
+  const draftTimer = useRef<number | undefined>(undefined);
+
+  // Escape schließt das Einstellungs-Sheet
+  useEffect(() => {
+    if (editingIdx === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingIdx(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editingIdx]);
 
   useEffect(() => {
     (async () => {
@@ -129,22 +149,28 @@ export function SessionScreen({ planId, dayId }: Props) {
     })();
   }, [planId, dayId]);
 
-  // Entwurf bei jeder Änderung speichern, solange das Training nicht gespeichert ist
+  // Entwurf kurz nach der letzten Änderung speichern (entprellt, entlastet die Eingabe).
+  // Der Timer läuft auch nach dem Verlassen der Ansicht weiter, daher geht nichts verloren.
   useEffect(() => {
     if (!loaded || saved || !day) return;
-    const hasProgress =
-      dateTouched || note.trim() !== '' || rows.some((r) => r.done.some(Boolean) || !!r.note?.trim());
-    if (!hasProgress) {
-      localStorage.removeItem(draftKey);
-      return;
-    }
-    const draft: Draft = {
-      locker,
-      note,
-      date: dateTouched ? date : undefined,
-      rows: rows.map((r) => ({ sets: r.sets, done: r.done, note: r.note })),
+    const write = () => {
+      if (savingRef.current) return;
+      const hasProgress =
+        dateTouched || note.trim() !== '' || rows.some((r) => r.done.some(Boolean) || !!r.note?.trim());
+      if (!hasProgress) {
+        localStorage.removeItem(draftKey);
+        return;
+      }
+      const draft: Draft = {
+        locker,
+        note,
+        date: dateTouched ? date : undefined,
+        rows: rows.map((r) => ({ sets: r.sets, done: r.done, note: r.note })),
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
     };
-    localStorage.setItem(draftKey, JSON.stringify(draft));
+    window.clearTimeout(draftTimer.current);
+    draftTimer.current = window.setTimeout(write, 300);
   }, [rows, locker, note, date, dateTouched, loaded, saved]);
 
   if (plan === undefined || settings === undefined) return <p class="muted">Lade …</p>;
@@ -158,14 +184,33 @@ export function SessionScreen({ planId, dayId }: Props) {
   const updateNote = (rowIdx: number, note: string) =>
     setRows((rs) => rs.map((r, i) => (i === rowIdx ? { ...r, note } : r)));
 
-  const updateSet = (rowIdx: number, setIdx: number, patch: Partial<SetLog>) =>
+  /**
+   * Ändert einen Wert funktional auf Basis des aktuellen Stands.
+   * Mehrere schnelle Tipps vor dem nächsten Render zählen so alle mit.
+   */
+  const adjustSet = (rowIdx: number, setIdx: number, field: keyof SetLog, fn: (v: number) => number) =>
     setRows((rs) =>
       rs.map((r, i) =>
         i !== rowIdx
           ? r
-          : { ...r, sets: r.sets.map((s, j) => (j === setIdx ? { ...s, ...patch } : s)) },
+          : {
+              ...r,
+              sets: r.sets.map((s, j) => (j === setIdx ? { ...s, [field]: fn(s[field]) } : s)),
+            },
       ),
     );
+
+  /** Übernimmt eine im Sheet geänderte Übung sofort in alle Zeilen, in denen sie vorkommt */
+  const applyExercise = async (ex: Exercise) => {
+    setRows((rs) =>
+      rs.map((r) => ({
+        ...r,
+        exercise: r.item.exerciseId === ex.id ? ex : r.exercise,
+        alt: r.item.altId === ex.id ? ex : r.alt,
+      })),
+    );
+    setEditingIdx(null);
+  };
 
   const toggleDone = (rowIdx: number, setIdx: number, checked: boolean) => {
     const nextDone = rows[rowIdx].done.map((d, j) => (j === setIdx ? checked : d));
@@ -180,6 +225,7 @@ export function SessionScreen({ planId, dayId }: Props) {
 
   const save = async () => {
     if (busy || saved) return;
+    savingRef.current = true;
     setBusy(true);
     setError('');
     const session: Session = {
@@ -204,6 +250,7 @@ export function SessionScreen({ planId, dayId }: Props) {
       setSaved(true);
       setTimeout(() => navigate('/'), 600);
     } catch (err) {
+      savingRef.current = false;
       setError(`Speichern fehlgeschlagen: ${(err as Error).message}`);
       setBusy(false);
     }
@@ -256,13 +303,25 @@ export function SessionScreen({ planId, dayId }: Props) {
               </span>
             }
             summary={doneSets.length > 0 ? summarizeSets(doneSets) : `Ziel: ${summarizeItem(row.item)}`}
+            actions={
+              row.exercise && (
+                <button
+                  type="button"
+                  class="gear"
+                  aria-label="Übung bearbeiten"
+                  onClick={() => setEditingIdx(rowIdx)}
+                >
+                  ⚙
+                </button>
+              )
+            }
           >
             {row.item.hint && <div class="note">{row.item.hint}</div>}
 
             <div class="sets">
               <div class="set set-head" aria-hidden="true">
                 <span>Satz</span>
-                <span>Gewicht (kg)</span>
+                <span>{row.exercise?.perSide ? 'kg / Seite' : 'Gewicht (kg)'}</span>
                 <span>Wdh.</span>
               </div>
               {row.sets.map((s, setIdx) => (
@@ -278,11 +337,14 @@ export function SessionScreen({ planId, dayId }: Props) {
                   </label>
                   <Stepper
                     value={s.w}
-                    step={row.exercise ? settings.increments[row.exercise.equipment] || 1 : 1}
+                    step={stepOf(row.exercise)}
                     unit="kg"
-                    onChange={(w) => updateSet(rowIdx, setIdx, { w })}
+                    onAdjust={(fn) => adjustSet(rowIdx, setIdx, 'w', fn)}
                   />
-                  <Stepper value={s.r} step={1} unit="Wdh." onChange={(r) => updateSet(rowIdx, setIdx, { r })} />
+                  <Stepper value={s.r} step={1} unit="Wdh." onAdjust={(fn) => adjustSet(rowIdx, setIdx, 'r', fn)} />
+                  {row.exercise?.perSide && (
+                    <span class="muted set-total">= {fmtKg(totalWeight(row.exercise, s.w))} kg gesamt</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -313,6 +375,20 @@ export function SessionScreen({ planId, dayId }: Props) {
         </label>
       </div>
 
+      {editingIdx !== null && rows[editingIdx]?.exercise && (
+        <div class="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && setEditingIdx(null)}>
+          <div class="sheet" role="dialog" aria-modal="true" aria-label="Übung bearbeiten">
+            <h2>Übung bearbeiten</h2>
+            <p class="muted">Änderungen gelten für diese Übung in allen Plänen.</p>
+            <ExerciseForm
+              initial={rows[editingIdx].exercise}
+              onSaved={applyExercise}
+              onCancel={() => setEditingIdx(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {error && <p class="hint">{error}</p>}
 
       <button class="primary big" onClick={save} disabled={busy || saved}>
@@ -326,21 +402,22 @@ function Stepper({
   value,
   step,
   unit,
-  onChange,
+  onAdjust,
 }: {
   value: number;
   step: number;
   unit: string;
-  onChange: (v: number) => void;
+  /** Erhält eine Funktion, die auf dem aktuellen Wert arbeitet (kein veralteter Wert) */
+  onAdjust: (fn: (v: number) => number) => void;
 }) {
   const round = (n: number) => Math.round(n * 100) / 100;
   return (
     <div class="stepper">
-      <button onClick={() => onChange(round(Math.max(0, value - step)))} aria-label={`${unit} runter`}>
+      <button onClick={() => onAdjust((v) => round(Math.max(0, v - step)))} aria-label={`${unit} runter`}>
         −
       </button>
-      <DecimalInput value={value} onChange={onChange} />
-      <button onClick={() => onChange(round(value + step))} aria-label={`${unit} hoch`}>
+      <DecimalInput value={value} onChange={(n) => onAdjust(() => n)} />
+      <button onClick={() => onAdjust((v) => round(v + step))} aria-label={`${unit} hoch`}>
         +
       </button>
       <span class="muted">{unit}</span>

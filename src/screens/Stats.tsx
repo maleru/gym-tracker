@@ -80,7 +80,8 @@ export function StatsScreen() {
     sessions.some((s) => s.log.some((l) => l.exerciseId === x.id && l.sets.length > 0)),
   );
   const selected = exerciseId || trained[0]?.id || '';
-  const points = selected ? exerciseHistory(selected, sessions, planId || undefined) : [];
+  const selectedEx = exercises.find((x) => x.id === selected);
+  const points = selected ? exerciseHistory(selected, sessions, planId || undefined, selectedEx) : [];
   const change = percentChange(points, metric);
 
   // Körperkarte und Balkenliste
@@ -131,6 +132,9 @@ export function StatsScreen() {
               </select>
             </label>
           </div>
+          {selectedEx?.perSide && (
+            <p class="muted">Gesamtgewicht: 2 × Eingabe pro Seite + Stange {fmtNum(selectedEx.barWeight ?? 0)} kg</p>
+          )}
           <LineChart points={points.map((p) => ({ label: fmtDate(p.date), y: p[metric] }))} />
           {change !== undefined && (
             <p class={`delta ${change >= 0 ? 'up' : 'down'}`}>

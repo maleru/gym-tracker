@@ -11,6 +11,12 @@ export interface Exercise {
   note?: string;
   /** Geräteeinstellung, z. B. "(5;2)" */
   setting?: string;
+  /** Schrittweite für +/− in kg, bezogen auf die Eingabe */
+  step?: number;
+  /** Eingabe ist Gewicht pro Seite; Gesamt = 2 × Eingabe + barWeight */
+  perSide?: boolean;
+  /** Stangengewicht in kg, nur bei perSide relevant (Standard 20, 0 bei Multipresse) */
+  barWeight?: number;
 }
 
 export interface PlanItem {
@@ -81,4 +87,6 @@ export interface Settings {
   lastLocker?: string;
   /** Einmalige Bereinigung der Katalog-Notizen durchgeführt */
   catalogCleaned?: boolean;
+  /** Einmalige Migration: Schritt, Pro-Seite und Stange je Übung gesetzt */
+  exerciseMigrationV2?: boolean;
 }

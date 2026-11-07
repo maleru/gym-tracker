@@ -1,3 +1,8 @@
+/* Kein Doppeltipp-Zoom: Schnelle Folgetipps zählen sofort als Klicks (ohne 300-ms-Verzögerung) */
+* {
+  touch-action: manipulation;
+}
+
 :root {
   --bg: #0f1115;
   --card: #1a1d24;
@@ -172,7 +177,7 @@ a {
 input[type='date'] {
   min-width: 0;
   padding: 8px 6px;
-  font-size: 0.95rem;
+  font-size: 16px;
 }
 
 .grid4 {
@@ -194,6 +199,7 @@ label.check {
   gap: 8px;
 }
 
+/* Mindestens 16 px, sonst zoomt iOS beim Fokussieren heran */
 input,
 select,
 textarea {
@@ -206,6 +212,7 @@ textarea {
   background: var(--field);
   color: var(--text);
   font: inherit;
+  font-size: 16px;
 }
 
 label.check input {
@@ -239,6 +246,12 @@ button,
 
 button:disabled {
   opacity: 0.6;
+}
+
+/* Sofortiges Tastenfeedback beim Antippen */
+button:not(:disabled):active {
+  transform: scale(0.96);
+  background: #2c313c;
 }
 
 button.primary,
@@ -441,6 +454,59 @@ a.big {
   text-align: left;
   font: inherit;
   cursor: pointer;
+}
+
+/* Kopfzeile mit Zahnrad: Kopf füllt die Breite, Zahnrad steht daneben */
+.collapsible-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.collapsible-bar .collapsible-head {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.gear {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.2rem;
+  background: none;
+  border: none;
+  color: var(--muted);
+}
+
+/* Gesamtgewicht unter einem Satz bei Pro-Seite-Übungen */
+.set-total {
+  grid-column: 1 / -1;
+  padding-left: 62px;
+  font-size: 0.8rem;
+}
+
+/* Bottom-Sheet für die Übungseinstellungen im Training */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 10;
+}
+
+.sheet {
+  background: var(--card);
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+  width: 100%;
+  max-width: 640px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 .collapsible-title {

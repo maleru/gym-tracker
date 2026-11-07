@@ -145,7 +145,10 @@ export function validateBackup(data: unknown): void {
       !isStr(e.equipment) ||
       !EQUIPMENT_VALUES.includes(e.equipment) ||
       !Array.isArray(e.muscles) ||
-      !e.muscles.every(isStr)
+      !e.muscles.every(isStr) ||
+      (e.step !== undefined && !(isNum(e.step) && e.step > 0)) ||
+      (e.perSide !== undefined && typeof e.perSide !== 'boolean') ||
+      (e.barWeight !== undefined && !(isNum(e.barWeight) && e.barWeight >= 0))
     ) {
       throw new Error('Ungültige Übung im Backup');
     }

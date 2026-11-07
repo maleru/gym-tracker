@@ -1,4 +1,29 @@
-import type { Plan, PlanDay, PlanItem, Session, SetLog } from './types';
+import type { Exercise, Plan, PlanDay, PlanItem, Session, SetLog } from './types';
+
+/** Standard-Stange bei Langhantel-Übungen in kg */
+export const DEFAULT_BAR_WEIGHT = 20;
+
+/**
+ * Gesamtgewicht für Fortschritt und Statistik.
+ * Bei Pro-Seite-Übungen steckt in der Eingabe nur ein Ende der Hantel.
+ */
+export function totalWeight(ex: Pick<Exercise, 'perSide' | 'barWeight'> | undefined, w: number): number {
+  if (!ex?.perSide) return w;
+  return 2 * w + (ex.barWeight ?? DEFAULT_BAR_WEIGHT);
+}
+
+/**
+ * Startwert für die Schrittweite einer Übung, wenn noch keine gesetzt ist.
+ * Nur ein Vorschlag, danach ist der Wert pro Übung frei einstellbar.
+ */
+export function defaultStep(ex: Pick<Exercise, 'name' | 'muscles' | 'equipment'>): number {
+  const name = ex.name.toLowerCase();
+  if (name.includes('beinpresse') || name.includes('waden')) return 5;
+  const primary = ex.muscles[0];
+  if (primary && ['bizeps', 'trizeps', 'schulter'].includes(primary)) return 0.5;
+  if (ex.equipment === 'Maschine') return 2.5;
+  return 1;
+}
 
 /** Zahl in deutscher Schreibweise (Komma statt Punkt). */
 const fmtNum = (n: number): string => String(n).replace('.', ',');

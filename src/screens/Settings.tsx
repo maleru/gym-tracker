@@ -1,19 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
-import { DecimalInput } from '../components/DecimalInput';
-import { DEFAULT_INCREMENTS, exportAll, getSettings, importAll, updateSettings } from '../db';
+import { exportAll, getSettings, importAll } from '../db';
 import { localDate } from '../date';
-import type { Equipment, Settings } from '../types';
-
-const EQUIPMENT: Equipment[] = ['KH', 'LH', 'SZ', 'Kabel', 'Maschine', 'Koerper'];
-
-const EQUIPMENT_LABEL: Record<Equipment, string> = {
-  KH: 'KH',
-  LH: 'LH',
-  SZ: 'SZ',
-  Kabel: 'Kabel',
-  Maschine: 'Maschine',
-  Koerper: 'Körper',
-};
+import type { Settings } from '../types';
 
 export function SettingsScreen() {
   const [settings, setSettings] = useState<Settings>();
@@ -24,15 +12,6 @@ export function SettingsScreen() {
   }, []);
 
   if (!settings) return <p class="muted">Lade …</p>;
-
-  const setInc = async (eq: Equipment, value: number) => {
-    setSettings({ ...settings, increments: { ...settings.increments, [eq]: value } });
-    setSettings(await updateSettings((s) => ({ ...s, increments: { ...s.increments, [eq]: value } })));
-  };
-
-  const resetIncrements = async () => {
-    setSettings(await updateSettings((s) => ({ ...s, increments: { ...DEFAULT_INCREMENTS } })));
-  };
 
   const download = async () => {
     const json = await exportAll();
@@ -69,21 +48,8 @@ export function SettingsScreen() {
         </p>
         <p class="muted">Diese Angabe hilft beim Prüfen, ob die neueste Version installiert ist.</p>
       </div>
+<p class="muted">Schrittweiten werden pro Übung eingestellt: im Training über das ⚙ neben der Übung.</p>
 
-      <div class="card">
-        <h2>Schrittweiten (kg)</h2>
-        <div class="grid2">
-          {EQUIPMENT.map((eq) => (
-            <label>
-              {EQUIPMENT_LABEL[eq]}
-              <DecimalInput value={settings.increments[eq]} onChange={(v) => v >= 0 && setInc(eq, v)} />
-            </label>
-          ))}
-        </div>
-        <button class="gap" onClick={resetIncrements}>
-          Alle auf 1,0 setzen
-        </button>
-      </div>
 
       <div class="card">
         <h2>Backup</h2>
